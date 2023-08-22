@@ -126,7 +126,6 @@ ui <- fluidPage(#theme = shinytheme("united"),
                                         prettySwitch(inputId = "doubtful_locations_switch_global", label = "Include Doubtful", fill = TRUE, status = "primary", inline=TRUE))
                                     ),
                                     hr(),
-                                    # selectInput(inputId = 'family', label = 'Family:',choices = NULL, selected = NULL, multiple = FALSE),
                                     selectInput(inputId = 'threatened', label = 'Threatened:',choices = NULL, selected = NULL, multiple = FALSE),
                                     conditionalPanel(condition ="input.threatened == 'Threatened'",
                                                      selectInput(inputId = 'threatened_cat', label = 'Threatened Category:',choices = NULL, selected = NULL, multiple = TRUE)),
@@ -135,41 +134,6 @@ ui <- fluidPage(#theme = shinytheme("united"),
                                     sliderInput(inputId = 'extant', label = 'Number of Collections Globally:', min = 0, max = 1, value = c(0,1), sep = ''),
                                     hr())
                            ),
-
-               # HTML('<h4>Years to Display:</h4>'),
-               # fluidRow(
-               #   column(
-               #     width = 4, selectInput(inputId = 'single_value_min_year', label = HTML('Min Year:'), choices = NULL, selected = NULL, multiple = FALSE)),
-               #   column(
-               #     width = 4, selectInput(inputId = 'single_value_max_year', label = HTML('Max Year:'), choices = NULL, selected = NULL, multiple = FALSE))
-               # ),
-               # hr(),
-
-               # HTML('<h4>Filters:</h4>'),
-               # selectInput(inputId = 'provenance', label = 'Provenance:',choices = NULL, selected = NULL, multiple = TRUE),
-               # selectInput(inputId = 'infra', label = 'Type of Taxa:',choices = NULL, selected = NULL, multiple = TRUE),
-               # HTML('<h5>Geography Controls:</h5>'),
-               # fluidRow(
-               #   column(
-               #     width = 4, selectInput(inputId = 'region_levels', label = HTML('Level:'),choices = c('Level 1', 'Level 2', 'Level 3'), selected = 'Level 3', multiple = FALSE)),
-               #   column(
-               #     width = 8, selectInput(inputId = 'region', label = HTML('Region:'),choices = NULL, selected = NULL, multiple = TRUE))),
-               # fluidRow(
-               #   column(
-               #     width = 4, selectInput(inputId = 'Geography_Native_global', label = 'Location type:',choices = c('All', 'Naturally occurring only', 'Introduced only'), selected = 'All', multiple = FALSE)),
-               #   column(
-               #     width = 4,prettySwitch(inputId = "extinct_switch_global", label = "Include Extinct", fill = TRUE, status = "primary", inline=TRUE),
-               #     prettySwitch(inputId = "doubtful_locations_switch_global", label = "Include Doubtful", fill = TRUE, status = "primary", inline=TRUE))
-               # ),
-               # hr(),
-               # # selectInput(inputId = 'family', label = 'Family:',choices = NULL, selected = NULL, multiple = FALSE),
-               # selectInput(inputId = 'threatened', label = 'Threatened:',choices = NULL, selected = NULL, multiple = FALSE),
-               # conditionalPanel(condition ="input.threatened == 'Threatened'",
-               #                  selectInput(inputId = 'threatened_cat', label = 'Threatened Category:',choices = NULL, selected = NULL, multiple = TRUE)),
-               # selectInput(inputId = 'endemic', label = HTML('Endemic: <font color="#D3D3D3"> (Level 3, Native, not-extinct, not-doubtful) </font>'),choices = NULL, selected = NULL, multiple = FALSE),
-               # selectInput(inputId = 'enrichment_status', label = 'POWO Match Status:',choices = c('All Records', 'POWO Matched', 'No Match'), selected = 'All Records', multiple = FALSE),
-               # sliderInput(inputId = 'extant', label = 'Number of Global Collections:', min = 0, max = 1, value = c(0,1), sep = ''),
-               # hr()
   ),
 
   # Main panel for displaying outputs ----
@@ -447,7 +411,7 @@ server <- function(input, output, session){
 
   #Add parts of the enriched report.
   # Endemic or not endemic
-  report$endemic = rep('Not endemic', nrow(report))
+  report$endemic = rep('Not Endemic', nrow(report))
   endemic_index = which(stringr::str_length(report$POWO_Dist_000_area_code_l3) ==3)
   report$endemic[endemic_index] = 'Endemic'
 
@@ -455,7 +419,7 @@ server <- function(input, output, session){
   report$ProvenanceCode[report$ProvenanceCode == 'G'] = 'Garden'
   report$ProvenanceCode[report$ProvenanceCode == 'U'] = 'Unknown'
   report$ProvenanceCode[report$ProvenanceCode == 'W'] = 'Wild'
-  report$ProvenanceCode[report$ProvenanceCode == 'Z'] = 'Wild-derived'
+  report$ProvenanceCode[report$ProvenanceCode == 'Z'] = 'Wild-Derived'
 
   # Cleaned name with author.
   report$good_name = paste0(report$sanitised_taxon, ' ', report$extracted_author)
@@ -703,6 +667,7 @@ server <- function(input, output, session){
   })
   #---- (END) User conditional select values -------------------------------
 
+  #---- User graph/chart options  --------------------------
   observeEvent(input$chart_colour, {
     print('change colour scheme')
     colourScheme <- function(n, alpha = 1, direction = 1){
@@ -724,7 +689,9 @@ server <- function(input, output, session){
     }
     colourScheme <<- colourScheme
   })
-  #Get the wanted data
+  #---- (END) User graph/chart options -------------------------------
+
+  #---- Get information for plots.  --------------------------
   observeEvent(c(input$extant,
                  input$provenance,
                  input$infra,
@@ -1073,9 +1040,9 @@ server <- function(input, output, session){
               infra =  sum(grepl('2|3|4', garden_current$infrageneric_level))
               species =  sum(grepl('1', garden_current$infrageneric_level))
 
-              return(c(indet, hort, infra, species))
+              return(c(species, infra, hort, indet))
             }))))
-            names(new_objects) = c('Indeterminate', 'Horticultral Taxa', 'Infraspecific Taxa', 'Species')
+            names(new_objects) = c('Species','Infraspecific', 'Horticultral','Indeterminate')
 
             wanted = data.frame(year = years, new_objects)
 
@@ -1164,6 +1131,7 @@ server <- function(input, output, session){
 
     }
   })
+  #---- (END) Get information for plots.  --------------------------
 
   #---- Produce the datatable. ---------------------
   output$table = renderDT({
@@ -1240,7 +1208,7 @@ server <- function(input, output, session){
     }
   })
 
-  # ==== Produce the change_time_single_value plotly. ====
+  # ==== Produce the whole collection plotly. ====
   output$change_time_single_value = renderUI({
     input$chart_colour
 
@@ -1287,6 +1255,7 @@ server <- function(input, output, session){
           colours = colourScheme(length(infra_columns), direction = -1)
         }
         infra_labels = names(infra_data1)[infra_columns]
+        infra_labels = stringr::str_replace_all(infra_labels,pattern = '\\.',' ')
 
         fig1 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max_value), add_annotate = input$add_annotate)
         # fig <- plot_ly(infra_data1, x = ~year)
@@ -1377,81 +1346,55 @@ server <- function(input, output, session){
         )
       }
       if(input$turnover_type_of_chart %in% c('By Type of Taxa', 'By Provenance', 'By Endemic Species', 'By Threatened Species')){
+        # Get the names of the different lines.
         name_of_traces = names(wanted_data)
         name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
-        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(unlist(wanted_data[,-1]))), add_annotate = input$add_annotate)
-        for(i in 2:ncol(wanted_data)){
-          fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = wanted_data[,i], inherit = FALSE, name = name_of_traces[i])
+
+
+        # Define the colours used for the lines.
+        if(input$chart_colour_reverse){
+          colours = colourScheme(n=length(2:ncol(wanted_data)))
+        }else{
+          colours = colourScheme(length(2:ncol(wanted_data)), direction = -1)
         }
-        fig <- fig %>% layout(title = "",
-                              xaxis = list(title = "Year"),
-                              yaxis = list (title = paste0("Number of ",type_data)))
-        fig <- fig %>% layout(hovermode = 'x unified')
-        fig <- fig %>% layout(legend = list(orientation = 'h', x = 0, y = 1.1))
-        fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
 
-        p = htmltools::browsable(
-          tagList(list(
-            tags$div(h3(paste0('New ', type_data, ' Over Time ', input$turnover_type_of_chart ))),
-            tags$div(
-              style = 'width:100%;display:block;float:left;',
-              fig
-            )
-          ))
-        )
-      }
-
-
-
-
-
-      if(input$single_value_value_type %in% c('Infrageneric Diversity','Provenance', 'Threatened Species', 'Endemic Species')){
-        infra_data = wanted_data
-        infra_data1 = infra_data[,!grepl('_prop',names(infra_data))]
-        infra_data1 = infra_data1[,names(infra_data1) != 'text']
-        max_value = max(infra_data1[,-1],na.rm=T)
-        infra_columns =2:(ncol(infra_data1))
-        colours = viridis::inferno(length(infra_columns))
-        infra_labels = names(infra_data1)[infra_columns]
-
-
-        fig1 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max_value), add_annotate = input$add_annotate)
-        # fig <- plot_ly(infra_data1, x = ~year)
-        for(i in 1:length(infra_columns)){
-          fig1 <- fig1 %>% add_trace(x =infra_data1[,1], y = infra_data1[,infra_columns[i]], name = infra_labels[i], mode = 'lines',type = 'scatter', line = list(color = colours[i]), inherit = FALSE)
+        # Create plot for the number of new objects over time.
+        fig1 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(unlist(wanted_data[,-1]))), add_annotate = input$add_annotate)
+        for(i in 2:ncol(wanted_data)){
+          fig1 <- fig1 %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = wanted_data[,i], inherit = FALSE, name = name_of_traces[i], line = list(color = colours[i-1]))
         }
         fig1 <- fig1 %>% layout(title = "",
-                                xaxis = list(title = "Year"),
-                                yaxis = list (title = "Number of Items"))
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Number of ",type_data)))
         fig1 <- fig1 %>% layout(hovermode = 'x unified')
-
+        fig1 <- fig1 %>% layout(legend = list(orientation = 'h', x = 0, y = 1.1))
         fig1 <- fig1  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
 
-        ## Grouped species, hort etc RAW NUMBERS FOUR GRAPH OPTIONS.
-        infra_data1 = infra_data[,c(1, which(grepl('prop', names(infra_data))))]
-        infra_columns =2:(ncol(infra_data1))
-        colours = viridis::inferno(length(infra_columns))
-        infra_labels = stringr::str_remove(names(infra_data1)[infra_columns],pattern = '_prop')
-        max_value = max(infra_data1[,-1],na.rm=T)
 
-        fig2 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max_value), add_annotate = input$add_annotate)
-        for(i in 1:length(infra_columns)){
-          fig2 <- fig2 %>% add_trace(x =infra_data1[,1], y = infra_data1[,infra_columns[i]], name = infra_labels[i], mode = 'lines',type = 'scatter', line = list(color = colours[i]), inherit = FALSE)
+        # Create plot for the proportion of new objects over time.
+        prop_data = data.frame(year = wanted_data$year, wanted_data[,-1]/rowSums(wanted_data[,-1]))
+
+        fig2 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, 1), add_annotate = input$add_annotate)
+
+        for(i in 2:ncol(prop_data)){
+          fig2 <- fig2 %>% add_trace(type = 'scatter', mode = 'lines', data = prop_data, x = ~year, y = prop_data[,i], inherit = FALSE, name = name_of_traces[i], line = list(color = colours[i-1]))
         }
         fig2 <- fig2 %>% layout(title = "",
-                                xaxis = list(title = "Year"),
-                                yaxis = list (title = "Proportion of Items"))
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Proportion of ",type_data),
+                                            tickformat = ".0%",
+                                            hoverformat = '.2%'))
         fig2 <- fig2 %>% layout(hovermode = 'x unified')
+        fig2 <- fig2 %>% layout(legend = list(orientation = 'h', x = 0, y = 1.1))
         fig2 <- fig2  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
-
         p = htmltools::browsable(
           tagList(list(
-            tags$div(h3(paste0('Number of Items by ', type_data))),
+            tags$div(h3(paste0('Number of New ', type_data, ' Over Time ', input$turnover_type_of_chart ))),
             tags$div(
               style = 'width:100%;display:block;float:left;',
               fig1
             ),
-            tags$div(h3(paste0('Proportion of Items by ', type_data))),
+            tags$div(h3(paste0('Proportion of New ', type_data, ' Over Time ', input$turnover_type_of_chart ))),
             tags$div(
               style = 'width:100%;display:block;float:left;',
               fig2
@@ -1459,6 +1402,7 @@ server <- function(input, output, session){
           ))
         )
       }
+
 
       p
     }
