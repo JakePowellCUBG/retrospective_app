@@ -28,7 +28,7 @@ regions_plot <- function(event_data, ylim, add_annotate = FALSE){
     if(add_annotate){
       a <- list(
         x = xvalues,
-        y = rep(ylim[2]-(ylim[2]/8), length(xvalues)),
+        y = rep(ylim[2]-(ylim[2]/7), length(xvalues)),
         text = event_data[,4],
         xref = "x",
         yref = "y",
@@ -170,7 +170,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          hr(),
                          fluidRow(
                            column(
-                             width = 4, selectInput(inputId = 'single_value_value_type', label = HTML('Breakdown By:'), choices = c('Items', 'Accessions', 'Taxa', 'Species', 'Genera', 'Families'), selected = 'Items', multiple = FALSE)),
+                             width = 4, selectInput(inputId = 'single_value_value_type', label = HTML('Breakdown By:'), choices = c('Items', 'Accessions', 'Taxa', 'Species', 'Genera', 'Families'), selected = 'Accessions', multiple = FALSE)),
                            column(
                              width = 4, selectInput(inputId = 'single_value_chart', label = HTML('Chart:'), choices = c('Number Over Time', 'Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species'), selected = 'Number Over Time', multiple = FALSE))
                          ),
@@ -184,9 +184,9 @@ ui <- fluidPage(#theme = shinytheme("united"),
                            column(
                              width = 4, selectInput(inputId = 'turnover_type', label = HTML('Turnover:'), choices = c('New'), selected = 'New', multiple = FALSE)),
                            column(
-                             width = 4, selectInput(inputId = 'turnover_quantity', label = HTML('Breakdown By:'), choices = c('Items', 'Accessions'), selected = 'Accessions', multiple = FALSE)),
+                             width = 4, selectInput(inputId = 'turnover_quantity', label = HTML('Breakdown By:'), choices = c('Items', 'Accessions', 'Taxa', 'Species', 'Genera', 'Families'), selected = 'Accessions', multiple = FALSE)),
                            column(
-                             width = 4, selectInput(inputId = 'turnover_type_of_chart', label = HTML('Chart:'), choices = c('Over Time', 'By Type of Taxa', 'By Provenance', 'By Endemic Species', 'By Threatened Species'), selected = 'Over Time', multiple = FALSE))
+                             width = 4, selectInput(inputId = 'turnover_type_of_chart', label = HTML('Chart:'), choices = c('Number Over Time', 'By Type of Taxa', 'By Provenance', 'By Endemic Species', 'By Threatened Species'), selected = 'Number Over Time', multiple = FALSE))
                          ),
                          hr(),
                          uiOutput('change_time_turnover', width = '100%', height = '100%')),
@@ -464,7 +464,7 @@ server <- function(input, output, session){
                                 "POWO_Dist_110_area_code_l3",
                                 "POWO_Dist_101_area_code_l3",
                                 'infrageneric_level', 'genus', 'family', 'species', 'enrichment_status',
-                                'ItemStatusDate', 'ItemStatusType', 'GenusSpecies', 'POWO_taxon_name', 'POWO_taxon_authors','POWO_genus','POWO_species'), names(report))]
+                                'ItemStatusDate', 'ItemStatusType', 'GenusSpecies', 'POWO_taxon_name', 'POWO_taxon_authors','POWO_genus','POWO_species', 'sanitised_taxon'), names(report))]
 
   powo_link = rep(NA, nrow(report_care))
   powo_link[!is.na(report_care$POWO_web_address)] = createLink(report_care$POWO_web_address[!is.na(report_care$POWO_web_address)])
@@ -664,6 +664,20 @@ server <- function(input, output, session){
     else if(input$single_value_value_type %in% c('Taxa')){
       updateSelectInput(session, inputId = 'single_value_chart', choices = c('Number Over Time', 'Divided into Type of Taxa'), selected = 'Number Over Time')
     }
+  })
+
+  observeEvent(input$turnover_quantity,{
+    print('In change to turnover_quantity')
+    print(input$turnover_quantity)
+    if(input$turnover_quantity %in% c('Items', 'Accessions')){
+      updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = c('Number Over Time', 'Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species'), selected = 'Number Over Time')
+    }else if(input$turnover_quantity %in% c('Species', 'Genera', 'Families')){
+      updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = c('Number Accessioned Over Time', 'Number of New to Collection'), selected = 'Number Accessioned Over Time')
+    }
+    else if(input$turnover_quantity %in% c('Taxa')){
+      updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = c('Number Accessioned Over Time', 'Number of New to Collection', 'Divided into Type of Taxa'), selected = 'Number Accessioned Over Time')
+    }
+
   })
   #---- (END) User conditional select values -------------------------------
 
@@ -994,7 +1008,7 @@ server <- function(input, output, session){
         if(input$turnover_type == 'New'){
           # For new accessions we only have the field AccYear to know what are new records each year.
 
-          # For items and accessions we want the new accessions over time and broken down by sub-categories.
+          # Get data for Items and Accessions charts.
           if(input$turnover_quantity == 'Items'){
             # Nothing needed.
             values$turnover_type_data = 'Items'
@@ -1013,8 +1027,7 @@ server <- function(input, output, session){
 
             values$turnover_type_data = 'Accessions'
           }
-          # Step 3: Get the time-series info we want.
-          if(input$turnover_type_of_chart == 'Over Time'){
+          if(input$turnover_quantity %in% c('Items', 'Accessions') && input$turnover_type_of_chart == 'Number Over Time'){
             new_objects = lapply(years, function(year){
               # Accessions for the year
               garden_current = data_working[data_working$AccYear == year,]
@@ -1028,7 +1041,7 @@ server <- function(input, output, session){
 
             values$turnover_wanted_data = wanted
           }
-          if(input$turnover_type_of_chart == 'By Type of Taxa'){
+          if(input$turnover_quantity %in% c('Items', 'Accessions') && input$turnover_type_of_chart == 'Divided into Type of Taxa'){
             new_objects = data.frame(t(data.frame(lapply(years, function(year){
               # Accessions for the year
               garden_current = data_working[data_working$AccYear == year,]
@@ -1048,7 +1061,7 @@ server <- function(input, output, session){
 
             values$turnover_wanted_data = wanted
           }
-          if(input$turnover_type_of_chart == 'By Provenance'){
+          if(input$turnover_quantity %in% c('Items', 'Accessions') && input$turnover_type_of_chart == 'Divided into Provenance'){
             unique_provenance_values = unique(data_working$ProvenanceCode)
 
             new_objects = data.frame(t(data.frame(lapply(years, function(year){
@@ -1069,7 +1082,7 @@ server <- function(input, output, session){
 
             values$turnover_wanted_data = wanted
           }
-          if(input$turnover_type_of_chart == 'By Endemic Species'){
+          if(input$turnover_quantity %in% c('Items', 'Accessions') && input$turnover_type_of_chart == 'Divided into Endemic Species'){
             unique_values = unique(data_working$endemic)
 
             new_objects = data.frame(t(data.frame(lapply(years, function(year){
@@ -1090,7 +1103,7 @@ server <- function(input, output, session){
 
             values$turnover_wanted_data = wanted
           }
-          if(input$turnover_type_of_chart == 'By Threatened Species'){
+          if(input$turnover_quantity %in% c('Items', 'Accessions') && input$turnover_type_of_chart == 'Divided into Threatened Species'){
             unique_values = unique(data_working$threatened)
 
             new_objects = data.frame(t(data.frame(lapply(years, function(year){
@@ -1113,17 +1126,294 @@ server <- function(input, output, session){
           }
 
 
-          if(input$turnover_quantity == 'Taxa'){
+          if(input$turnover_quantity == 'Taxa'  && input$turnover_type_of_chart == 'Number Accessioned Over Time'){
+            values$turnover_type_data = 'Taxa'
 
+            new_objects = lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              Taxa = unique(garden_current$good_name)
+              no_objects <- length(Taxa)
+
+              return(no_objects)
+            })
+            wanted = data.frame(year = years, no_wanted = unlist(new_objects))
+
+            values$turnover_wanted_data = wanted
           }
-          if(input$turnover_quantity == 'Species'){
+          if(input$turnover_quantity == 'Taxa' && input$turnover_type_of_chart == 'Number of New to Collection'){
+            #Set name to Taxa for title of the chart.
+            values$turnover_type_data = 'Taxa'
 
+            #Get all the Taxa from the database.
+            all_Taxa = unique(data_working$good_name)
+            all_Taxa_without_author = data_working$sanitised_taxon[match(all_Taxa, data_working$good_name)]
+            #Get which Taxa are accessioned each year.
+            Taxa_accessioned_each_year = data.frame(lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              Taxa = unique(garden_current$good_name)
+
+              return(all_Taxa %in% Taxa)
+            }))
+            rownames(Taxa_accessioned_each_year) = all_Taxa
+            colnames(Taxa_accessioned_each_year) = years
+
+            #Get the Taxa in the collection each year
+            Taxa_in_collection_each_year = data.frame(lapply(data_plant_existing, function(x){
+              garden_current = data_working[x,]
+
+              # Number of objects.
+              Taxa = unique(garden_current$good_name)
+
+              return(all_Taxa %in% Taxa)
+            }))
+
+
+
+
+
+            new_to_year = rep(NA, ncol(Taxa_in_collection_each_year)-1)
+            new_to_year_Taxa = rep(NA, ncol(Taxa_in_collection_each_year)-1)
+            for(i in 2:ncol(Taxa_in_collection_each_year)){
+              new_in_year = Taxa_accessioned_each_year[,i]  &  !Taxa_in_collection_each_year[,i-1]
+              new_to_year[i-1] = sum(new_in_year)
+              new_to_year_Taxa[i-1] = paste0(all_Taxa_without_author[new_in_year],collapse=', ')
+            }
+
+
+            wanted = data.frame(year = years[-1], new_to_year = new_to_year, new_Taxa = new_to_year_Taxa)
+
+            values$turnover_wanted_data = wanted
           }
-          if(input$turnover_quantity == 'Genera'){
+          if(input$turnover_quantity == 'Taxa' && input$turnover_type_of_chart == 'Divided into Type of Taxa'){
+            # Reduce data working to only unique taxa.
+            unique_taxa = unique(data_working$good_name)
 
+            match_to_best = match(unique_taxa,data_working$good_name)
+
+            data_working = data_working[match_to_best,]
+            data_plant_existing = data_plant_existing[match_to_best,]
+
+            # Get the number of each infraspecific category.
+            new_objects = data.frame(t(data.frame(lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Breakdown of infrageneric diversity.
+              breakdown_infrageneric = table(garden_current$infrageneric_level)
+              indet = sum(grepl('0', garden_current$infrageneric_level))
+              hort = sum(grepl('5|6', garden_current$infrageneric_level))
+              infra =  sum(grepl('2|3|4', garden_current$infrageneric_level))
+              species =  sum(grepl('1', garden_current$infrageneric_level))
+
+              return(c(species, infra, hort, indet))
+            }))))
+            names(new_objects) = c('Species','Infraspecific', 'Horticultral','Indeterminate')
+
+            wanted = data.frame(year = years, new_objects)
+
+            values$turnover_wanted_data = wanted
           }
-          if(input$turnover_quantity == 'Families'){
+          if(input$turnover_quantity == 'Species'  && input$turnover_type_of_chart == 'Number Accessioned Over Time'){
+            values$turnover_type_data = 'Species'
+            # restrict to only species.
+            data_working = data_working[grepl('1',data_working$infrageneric_level),]
 
+            new_objects = lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              species = unique(garden_current$good_name)
+              no_objects <- length(species)
+
+              return(no_objects)
+            })
+            wanted = data.frame(year = years, no_wanted = unlist(new_objects))
+
+            values$turnover_wanted_data = wanted
+          }
+          if(input$turnover_quantity == 'Species' && input$turnover_type_of_chart == 'Number of New to Collection'){
+            #Set name to Species for title of the chart.
+            values$turnover_type_data = 'Species'
+            # restrict to only species.
+            data_working = data_working[grepl('1',data_working$infrageneric_level),]
+
+            #Get all the Species from the database.
+            all_Species = unique(data_working$good_name)
+            all_species_without_author = data_working$sanitised_taxon[match(all_Species, data_working$good_name)]
+            #Get which Species are accessioned each year.
+            Species_accessioned_each_year = data.frame(lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              Species = unique(garden_current$good_name)
+
+              return(all_Species %in% Species)
+            }))
+            rownames(Species_accessioned_each_year) = all_Species
+            colnames(Species_accessioned_each_year) = years
+
+            #Get the Species in the collection each year
+            Species_in_collection_each_year = data.frame(lapply(data_plant_existing, function(x){
+              garden_current = data_working[x,]
+
+              # Number of objects.
+              Species = unique(garden_current$good_name)
+
+              return(all_Species %in% Species)
+            }))
+
+
+
+
+
+            new_to_year = rep(NA, ncol(Species_in_collection_each_year)-1)
+            new_to_year_Species = rep(NA, ncol(Species_in_collection_each_year)-1)
+            for(i in 2:ncol(Species_in_collection_each_year)){
+              new_in_year = Species_accessioned_each_year[,i]  &  !Species_in_collection_each_year[,i-1]
+              new_to_year[i-1] = sum(new_in_year)
+              new_to_year_Species[i-1] = paste0(all_species_without_author[new_in_year],collapse=', ')
+            }
+
+
+            wanted = data.frame(year = years[-1], new_to_year = new_to_year, new_Species = new_to_year_Species)
+
+            values$turnover_wanted_data = wanted
+          }
+          if(input$turnover_quantity == 'Genera'  && input$turnover_type_of_chart == 'Number Accessioned Over Time'){
+            values$turnover_type_data = 'Genera'
+
+            new_objects = lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              genus = unique(garden_current$genus)
+              no_objects <- length(genus)
+
+              return(no_objects)
+            })
+            wanted = data.frame(year = years, no_wanted = unlist(new_objects))
+
+            values$turnover_wanted_data = wanted
+          }
+          if(input$turnover_quantity == 'Genera' && input$turnover_type_of_chart == 'Number of New to Collection'){
+            #Set name to genera for title of the chart.
+            values$turnover_type_data = 'Genera'
+
+            #Get all the genera from the database.
+            all_genera = unique(data_working$genus)
+
+            #Get which genera are accessioned each year.
+            genera_accessioned_each_year = data.frame(lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              genera = unique(garden_current$genus)
+
+              return(all_genera %in% genera)
+            }))
+            rownames(genera_accessioned_each_year) = all_genera
+            colnames(genera_accessioned_each_year) = years
+
+            #Get the genera in the collection each year
+            genera_in_collection_each_year = data.frame(lapply(data_plant_existing, function(x){
+              garden_current = data_working[x,]
+
+              # Number of objects.
+              genera = unique(garden_current$genus)
+
+              return(all_genera %in% genera)
+            }))
+
+
+
+
+
+            new_to_year = rep(NA, ncol(genera_in_collection_each_year)-1)
+            new_to_year_genera = rep(NA, ncol(genera_in_collection_each_year)-1)
+            for(i in 2:ncol(genera_in_collection_each_year)){
+              new_in_year = genera_accessioned_each_year[,i]  &  !genera_in_collection_each_year[,i-1]
+              new_to_year[i-1] = sum(new_in_year)
+              new_to_year_genera[i-1] = paste0(all_genera[new_in_year],collapse=', ')
+            }
+
+
+            wanted = data.frame(year = years[-1], new_to_year = new_to_year, new_genera = new_to_year_genera)
+
+            values$turnover_wanted_data = wanted
+          }
+          if(input$turnover_quantity == 'Families' && input$turnover_type_of_chart == 'Number Accessioned Over Time'){
+            values$turnover_type_data = 'Families'
+
+            new_objects = lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              family = unique(garden_current$family)
+              no_objects <- length(family)
+
+              return(no_objects)
+            })
+            wanted = data.frame(year = years, no_wanted = unlist(new_objects))
+
+            values$turnover_wanted_data = wanted
+          }
+          if(input$turnover_quantity == 'Families' && input$turnover_type_of_chart == 'Number of New to Collection'){
+            #Set name to families for title of the chart.
+            values$turnover_type_data = 'Families'
+
+            #Get all the families from the database.
+            all_families = unique(data_working$family)
+
+            #Get which families are accessioned each year.
+            families_accessioned_each_year = data.frame(lapply(years, function(year){
+              # Accessions for the year
+              garden_current = data_working[data_working$AccYear == year,]
+
+              # Number of objects.
+              family = unique(garden_current$family)
+
+              return(all_families %in% family)
+            }))
+            rownames(families_accessioned_each_year) = all_families
+            colnames(families_accessioned_each_year) = years
+
+            #Get the families in the collection each year
+            families_in_collection_each_year = data.frame(lapply(data_plant_existing, function(x){
+              garden_current = data_working[x,]
+
+              # Number of objects.
+              family = unique(garden_current$family)
+
+              return(all_families %in% family)
+              }))
+
+
+
+
+
+            new_to_year = rep(NA, ncol(families_in_collection_each_year)-1)
+            new_to_year_families = rep(NA, ncol(families_in_collection_each_year)-1)
+            for(i in 2:ncol(families_in_collection_each_year)){
+              new_in_year = families_accessioned_each_year[,i]  &  !families_in_collection_each_year[,i-1]
+              new_to_year[i-1] = sum(new_in_year)
+              new_to_year_families[i-1] = paste0(all_families[new_in_year],collapse=', ')
+            }
+
+
+            wanted = data.frame(year = years[-1], new_to_year = new_to_year, new_families = new_to_year_families)
+
+            values$turnover_wanted_data = wanted
           }
         }
       }
@@ -1163,7 +1453,7 @@ server <- function(input, output, session){
     dat_for_table = dat_for_table[,c(1,2,5,3:4,6:ncol(dat_for_table))]
 
 
-    datatable(dat_for_table, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE)})
+    datatable(dat_for_table, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE, filter="top")})
 
   # ==== Produce the summary plotly. ====
   output$summary = renderUI({
@@ -1241,7 +1531,6 @@ server <- function(input, output, session){
           ))
         )
       }
-
       if(!input$single_value_chart %in% c('Number Over Time')){
         infra_data = wanted_data
         infra_data1 = infra_data[,!grepl('_prop',names(infra_data))]
@@ -1310,6 +1599,7 @@ server <- function(input, output, session){
       )
       }
 
+
     p
     }
 
@@ -1326,7 +1616,7 @@ server <- function(input, output, session){
       wanted_data = values$turnover_wanted_data
       type_data = values$turnover_type_data
 
-      if(input$turnover_type_of_chart %in% c('Over Time')){
+      if(input$turnover_type_of_chart %in% c('Number Over Time')){
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, inherit = FALSE, name ='')
         fig <- fig %>% layout(title = "",
@@ -1335,17 +1625,19 @@ server <- function(input, output, session){
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
 
-        p = htmltools::browsable(
-          tagList(list(
-            tags$div(h3(paste0('Number of New ', type_data))),
-            tags$div(
-              style = 'width:100%;display:block;float:left;',
-              fig
-            )
-          ))
-        )
+
+          p = htmltools::browsable(
+            tagList(list(
+              tags$div(h3(paste0('Number of New ', type_data))),
+              tags$div(
+                style = 'width:100%;display:block;float:left;',
+                fig
+              )
+            ))
+          )
+
       }
-      if(input$turnover_type_of_chart %in% c('By Type of Taxa', 'By Provenance', 'By Endemic Species', 'By Threatened Species')){
+      if(input$turnover_type_of_chart %in% c('Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species')){
         # Get the names of the different lines.
         name_of_traces = names(wanted_data)
         name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
@@ -1402,6 +1694,61 @@ server <- function(input, output, session){
           ))
         )
       }
+      if(input$turnover_type_of_chart %in% c('Number Accessioned Over Time')){
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
+        fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, inherit = FALSE, name ='')
+        fig <- fig %>% layout(title = "",
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Number of ",type_data)))
+        fig <- fig %>% layout(hovermode = 'x')
+        fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+
+        p = htmltools::browsable(
+          tagList(list(
+            tags$div(h3(paste0('Number of ', type_data, ' Accessioned Each Year'))),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              fig
+            )
+          ))
+        )
+
+
+      }
+      if(input$turnover_type_of_chart %in% c('Number of New to Collection')){
+        # Produce the chart.
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$new_to_year)), add_annotate = input$add_annotate)
+        fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~new_to_year, inherit = FALSE, name ='')
+        fig <- fig %>% layout(title = "",
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Number of ",type_data)))
+        fig <- fig %>% layout(hovermode = 'x')
+        fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+
+        #Create linked table.
+        names(wanted_data) = c('Year', 'Number', type_data)
+        wanted_data = wanted_data[nrow(wanted_data):1,]
+        dt  = datatable(wanted_data, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE)
+
+        p = htmltools::browsable(
+          tagList(list(
+            tags$div(h3(paste0('Number of "New" ', type_data, ' Accessioned Each Year'))),
+            tags$div(htmltools::p(paste0('By New ', type_data, ' we mean that it did not exist in the previous year. Therefore, we may find new ', type_data , ' reoccur over time, if they are removed in the preceding years. '))),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              fig
+            ),
+            tags$div(htmltools::p('')),
+            tags$div(htmltools::p('Linked table')),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              dt
+            )
+          ))
+        )
+
+
+      }
 
 
       p
@@ -1412,4 +1759,3 @@ server <- function(input, output, session){
 }
 
 shinyApp(ui,server)
-
