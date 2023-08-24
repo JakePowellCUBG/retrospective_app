@@ -5,7 +5,7 @@ account: jpowell94
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 9616640
-bundleId: 7596385
+bundleId: 7600859
 url: https://jpowell94.shinyapps.io/retrospective_app/
 asMultiple: FALSE
 asStatic: FALSE

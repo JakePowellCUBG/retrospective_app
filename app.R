@@ -761,6 +761,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                            tabPanel("Filters",
                                     selectInput(inputId = 'provenance', label = 'Provenance:',choices = NULL, selected = NULL, multiple = TRUE),
                                     selectInput(inputId = 'infra', label = 'Type of Taxa:',choices = NULL, selected = NULL, multiple = TRUE),
+                                    selectInput(inputId = 'filter_family', label = 'Family:',choices = NULL, selected = NULL, multiple = TRUE),
                                     HTML('<h5>Geography Controls:</h5>'),
                                     fluidRow(
                                       column(
@@ -1126,6 +1127,9 @@ server <- function(input, output, session){
   updateSelectInput(session, inputId = 'provenance', choices = unique(report$ProvenanceCode), selected = unique(report$ProvenanceCode))
   updateSelectInput(session, inputId = 'infra', choices = c('Indeterminate', 'Species', 'Subspecies', 'Variety', 'Forma', 'Cultivar', 'Hybrid'), selected = NULL)
   updateSelectInput(session, inputId = 'threatened', choices = c('All',unique(report$threatened)), selected = 'All')
+  all_families = unique(report_care$family)
+  all_families = sort(all_families[!is.na(all_families)])
+  updateSelectInput(session, inputId = 'filter_family', choices = all_families, selected = NULL)
 
 
   ordered_redlist_options_short = c('VU', 'EN', 'CR', 'EW', 'EX')
@@ -1184,7 +1188,8 @@ server <- function(input, output, session){
                  input$Geography_Native_global,
                  input$extinct_switch_global,
                  input$doubtful_locations_switch_global,
-                 input$enrichment_status), {
+                 input$enrichment_status,
+                 input$filter_family), {
                    print('------------------')
                    print('in update filters')
                    # print(input)
@@ -1265,6 +1270,10 @@ server <- function(input, output, session){
                          current = current[which(!grepl('POWO',current$enrichment_status)),]
                        }
                      }
+                     if(!is.null(input$filter_family)){
+                       print('boyah')
+                       current = current[which(current$family %in% input$filter_family),]
+                     }
 
                      # print(head(current))
                      values$data = current
@@ -1317,8 +1326,7 @@ server <- function(input, output, session){
   })
 
   observeEvent(c(input$turnover_type,
-                 input$turnover_quantity
-                 ),{
+                 input$turnover_quantity),{
 
     print('Update turnover inputs')
     inputted_values = list(turnover_type = input$turnover_type,
@@ -1470,12 +1478,15 @@ server <- function(input, output, session){
   })
 
   observeEvent(input$main_tabs,{
-    if(is.na(values$turnover_wanted_data[1])){
-      if(input$main_tabs == 'Turnover'){
-        print('Click Button')
-        click('button')
-      }
-    }
+    print('Change tab')
+    if(input$main_tabs %in% c('Whole Collection', 'Turnover'))
+    click('button')
+    # if(is.na(values$turnover_wanted_data[1])){
+    #   if(input$main_tabs == 'Turnover'){
+    #     print('Click Button')
+    #
+    #   }
+    # }
   })
   #---- (END) User conditional select values -------------------------------
 
@@ -1515,11 +1526,11 @@ server <- function(input, output, session){
                  input$extinct_switch_global,
                  input$doubtful_locations_switch_global,
                  input$enrichment_status,
+                 input$filter_family,
                  input$main_tabs,
                  input$single_value_value_type,
                  input$single_value_chart,
                  input$button),{
-
 
     print('In create data for charts')
        if(nrow(values$data)==0){
