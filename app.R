@@ -747,7 +747,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
 
                tabsetPanel(type = "tabs",
                            tabPanel("Chart Options",
-                                    HTML('Choose the year range to show for charts/graphs in <b>Whole Collection</b> and <b>turnover</b>.'),
+                                    HTML('Choose the year range to show for charts/graphs in <b>Whole Collection</b> and <b>Turnover</b>.'),
                                     fluidRow(
                                       column(
                                         width = 4, selectInput(inputId = 'single_value_min_year', label = HTML('Min Year:'), choices = NULL, selected = NULL, multiple = FALSE)),
@@ -1824,31 +1824,31 @@ server <- function(input, output, session){
           time_series_info = lapply(working_with_plant_existing, function(x){
             garden_current = working_with_data[x,]
 
-            # Breakdown of endemic
-            breakdown = table(garden_current$endemic)
+            # Breakdown of threatened
+            breakdown = table(garden_current$threatened)
 
             return(list(breakdown = breakdown))
           })
-          type_data = 'Endemic Species'
+          type_data = 'Threatened Species'
 
-          unique_no_endemic_values = unique(values$data$endemic)[!is.na(unique(values$data$endemic))]
+          unique_no_threatened_values = unique(values$data$threatened)[!is.na(unique(values$data$threatened))]
 
           # Get the number of plants with provenance code for each year.
           no_items = data.frame(t(data.frame(lapply(time_series_info, function(x){
             details = x$breakdown
 
-            no_endemic = as.numeric(details[match(unique_no_endemic_values, names(details))])
-            no_endemic[is.na(no_endemic)] = 0
+            no_threatened = as.numeric(details[match(unique_no_threatened_values, names(details))])
+            no_threatened[is.na(no_threatened)] = 0
 
-            return(no_endemic)
+            return(no_threatened)
           }))))
-          names(no_items) = unique_no_endemic_values
+          names(no_items) = unique_no_threatened_values
 
           prop = round(no_items/rowSums(no_items)*100,digits=2)
           names(prop) =paste0(names(prop),'_prop')
-          endemic_data = data.frame(year = years, no_items, prop)
+          threatened_data = data.frame(year = years, no_items, prop)
 
-          values$wanted_data = endemic_data
+          values$wanted_data = threatened_data
           values$type_data = type_data
         }
       }
@@ -1981,7 +1981,7 @@ server <- function(input, output, session){
       wanted_data = values$wanted_data
       type_data = values$type_data
 
-      if(input$single_value_chart %in% c('Number Over Time')){
+      if(isolate(input$single_value_chart) %in% c('Number Over Time')){
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, text = ~text, hoverinfo = 'text', inherit = FALSE, line = list(color = 'rgb(22, 96, 167)'))
         # fig <- plot_ly(items_data, x = ~year, y = ~no_items, type = 'scatter', mode = 'lines', text = ~text, hoverinfo = 'text')
@@ -2001,7 +2001,7 @@ server <- function(input, output, session){
           ))
         )
       }
-      if(!input$single_value_chart %in% c('Number Over Time')){
+      if(!isolate(input$single_value_chart) %in% c('Number Over Time')){
         infra_data = wanted_data
         infra_data1 = infra_data[,!grepl('_prop',names(infra_data))]
         infra_data1 = infra_data1[,names(infra_data1) != 'text']
@@ -2039,6 +2039,8 @@ server <- function(input, output, session){
         colours = colourScheme(length(infra_columns), direction = -1)
       }
       infra_labels = stringr::str_remove(names(infra_data1)[infra_columns],pattern = '_prop')
+      infra_labels = stringr::str_replace_all(infra_labels,pattern = '\\.',' ')
+
       max_value = max(infra_data1[,-1],na.rm=T)
 
       fig2 = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max_value), add_annotate = input$add_annotate)
