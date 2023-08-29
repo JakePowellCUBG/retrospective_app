@@ -6,11 +6,19 @@ library(htmlwidgets)
 library(shinyWidgets)
 library(colourpicker)
 
+add_alpha <- function(col, alpha=1){
+  if(missing(col))
+    stop("Please provide a vector of colours.")
+  apply(sapply(col, grDevices::col2rgb)/255, 2,
+        function(x)
+          rgb(x[1], x[2], x[3], alpha=alpha))
+}
+
 createLink <- function(val) {
   sprintf('<a href="%s" target="_blank" class="btn btn-primary">POWO</a>',val)
 }
 
-regions_plot <- function(event_data, ylim, add_annotate = FALSE){
+regions_plot <- function(event_data, ylim, add_annotate = FALSE, alpha = 1){
   p = plot_ly()
   xvalues = NULL
   if(nrow(event_data) > 0){
@@ -18,9 +26,9 @@ regions_plot <- function(event_data, ylim, add_annotate = FALSE){
       xmin = lubridate::decimal_date(as.Date(event_data[i,2]))
       xmax = lubridate::decimal_date(as.Date(event_data[i,3]))
       if(xmin == xmax){
-        p <- p %>% plotly::add_lines(x = c(xmin,xmax), y = ylim, name = event_data[i,4],  hoverinfo = 'text', hovertext = event_data[i,4], inherit = FALSE, showlegend = FALSE, line=list(width=3, color = event_data[i,1]), layer = 'below')
+        p <- p %>% plotly::add_lines(x = c(xmin,xmax), y = ylim, name = event_data[i,4],  hoverinfo = 'text', hovertext = event_data[i,4], inherit = FALSE, showlegend = FALSE, line=list(width=3, color = add_alpha(event_data[i,1], alpha = alpha) ))
       }else{
-        p <- p %>% plotly::add_polygons(x = c(xmin, xmin,xmax,xmax), y = c(ylim, rev(ylim)), name = event_data[i,4],  inherit = FALSE, showlegend = FALSE, line=list(width=1, color = event_data[i,1]), fillcolor=event_data[i,1], hoverinfo = 'text', hovertext = event_data[i,4], layer = 'below')
+        p <- p %>% plotly::add_polygons(x = c(xmin, xmin,xmax,xmax), y = c(ylim, rev(ylim)), name = event_data[i,4],  inherit = FALSE, showlegend = FALSE, line=list(width=1, color = event_data[i,1]), fillcolor=add_alpha(event_data[i,1], alpha = alpha), hoverinfo = 'text', hovertext = event_data[i,4])
       }
     xvalues = c(xvalues,(xmin+xmax)/2)
 
@@ -2273,16 +2281,19 @@ server <- function(input, output, session){
 
       # Outputs for Net turnovers.
       if(isolate(input$turnover_type_of_chart) %in% c('Number Over Time') && isolate(input$turnover_type) %in% c('Net')){
+
         net = wanted_data$gain$no_wanted - wanted_data$loss$no_wanted
-        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate, alpha = 0.4)
 
         text = paste0('Date: ', wanted_data$gain$year,
                       '<br> Gain:', wanted_data$gain$no_wanted,
                       '<br> Loss:', wanted_data$loss$no_wanted,
                       '<br> Net:', net)
         plus_minus = net > 0
+        cols = rep('#FF0000', length(plus_minus))
+        cols[plus_minus] = '#0000FF'
 
-        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  marker = list(color = cols))
         fig <- fig %>% layout(title = "",
                               xaxis = list(title = "Year"),
                               yaxis = list (title = paste0("Net Number of ",type_data)))
@@ -2304,15 +2315,17 @@ server <- function(input, output, session){
       }
       if(isolate(input$turnover_type_of_chart) %in% c('Number of Net to Collection') && isolate(input$turnover_type) %in% c('Net')){
         net = wanted_data$gain$new_to_year - wanted_data$loss$loss_to_year
-        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate, alpha = 0.4)
 
         text = paste0('Date: ', wanted_data$gain$year,
                       '<br> Gain:', wanted_data$gain$new_to_year,
                       '<br> Loss:', wanted_data$loss$loss_to_year,
                       '<br> Net:', net)
         plus_minus = net > 0
+        cols = rep('#FF0000', length(plus_minus))
+        cols[plus_minus] = '#0000FF'
 
-        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text', marker = list(color = cols))
         fig <- fig %>% layout(title = "",
                               xaxis = list(title = "Year"),
                               yaxis = list (title = paste0("Net Number of ",type_data)))
@@ -2359,16 +2372,18 @@ server <- function(input, output, session){
           loss_no = as.numeric(unlist(loss[match(name_of_traces[i], names(loss))]))
 
           net = gain_no - loss_no
-          # fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
-          fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = F)
+          fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate, alpha = 0.4)
+
 
           text = paste0('Date: ', wanted_data$gain$year,
                         '<br> Gain:', gain_no,
                         '<br> Loss:',  loss_no,
                         '<br> Net:', net)
           plus_minus = net > 0
+          cols = rep('#FF0000', length(plus_minus))
+          cols[plus_minus] = '#0000FF'
 
-          fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+          fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text', marker = list(color = cols))
           fig <- fig %>% layout(title = "",
                                 xaxis = list(title = "Year"),
                                 yaxis = list (title = paste0("Net Number of ",type_data[[1]])))
