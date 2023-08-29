@@ -18,9 +18,9 @@ regions_plot <- function(event_data, ylim, add_annotate = FALSE){
       xmin = lubridate::decimal_date(as.Date(event_data[i,2]))
       xmax = lubridate::decimal_date(as.Date(event_data[i,3]))
       if(xmin == xmax){
-        p <- p %>% plotly::add_lines(x = c(xmin,xmax), y = ylim, name = event_data[i,4],  hoverinfo = 'text', hovertext = event_data[i,4], inherit = FALSE, showlegend = FALSE, line=list(width=3, color = event_data[i,1]))
+        p <- p %>% plotly::add_lines(x = c(xmin,xmax), y = ylim, name = event_data[i,4],  hoverinfo = 'text', hovertext = event_data[i,4], inherit = FALSE, showlegend = FALSE, line=list(width=3, color = event_data[i,1]), layer = 'below')
       }else{
-        p <- p %>% plotly::add_polygons(x = c(xmin, xmin,xmax,xmax), y = c(ylim, rev(ylim)), name = event_data[i,4],  inherit = FALSE, showlegend = FALSE, line=list(width=1, color = event_data[i,1]), fillcolor=event_data[i,1], hoverinfo = 'text', hovertext = event_data[i,4])
+        p <- p %>% plotly::add_polygons(x = c(xmin, xmin,xmax,xmax), y = c(ylim, rev(ylim)), name = event_data[i,4],  inherit = FALSE, showlegend = FALSE, line=list(width=1, color = event_data[i,1]), fillcolor=event_data[i,1], hoverinfo = 'text', hovertext = event_data[i,4], layer = 'below')
       }
     xvalues = c(xvalues,(xmin+xmax)/2)
 
@@ -832,7 +832,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          hr(),
                          fluidRow(
                            column(
-                             width = 4, selectInput(inputId = 'turnover_type', label = HTML('Turnover:'), choices = c('Gain', 'Loss'), selected = 'Gain', multiple = FALSE)),
+                             width = 4, selectInput(inputId = 'turnover_type', label = HTML('Turnover:'), choices = c('Gain', 'Loss', 'Net'), selected = 'Gain', multiple = FALSE)),
                            column(
                              width = 4, selectInput(inputId = 'turnover_quantity', label = HTML('Breakdown By:'), choices = c('Items', 'Accessions', 'Taxa', 'Species', 'Genera', 'Families'), selected = 'Accessions', multiple = FALSE)),
                            column(
@@ -1348,12 +1348,20 @@ server <- function(input, output, session){
             selected = choices[match(input$turnover_type_of_chart, c('Number Lost Over Time', 'Number of Lost to Collection'))]
             updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = selected)
           }
+          if(input$turnover_type_of_chart %in% c('Number of Net to Collection')){
+            choices = c('Number Accessioned Over Time', 'Number of New to Collection')
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number of New to Collection')
+          }
         }
         if(input$turnover_quantity %in% c('Taxa')){
           if(input$turnover_type_of_chart %in% c('Number Lost Over Time', 'Number of Lost to Collection', 'Divided into Type of Taxa')){
             choices = c('Number Accessioned Over Time', 'Number of New to Collection', 'Divided into Type of Taxa')
             selected = choices[match(input$turnover_type_of_chart, c('Number Lost Over Time', 'Number of Lost to Collection', 'Divided into Type of Taxa'))]
             updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = selected)
+          }
+          if(input$turnover_type_of_chart %in% c('Number of Net to Collection')){
+            choices = c('Number Accessioned Over Time', 'Number of New to Collection', 'Divided into Type of Taxa')
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number of New to Collection')
           }
         }
 
@@ -1370,6 +1378,10 @@ server <- function(input, output, session){
             selected = choices[match(input$turnover_type_of_chart, c('Number Accessioned Over Time', 'Number of New to Collection'))]
             updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = selected)
           }
+          if(input$turnover_type_of_chart %in% c('Number of Net to Collection')){
+            choices = c('Number Lost Over Time', 'Number of Lost to Collection')
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number of Lost to Collection')
+          }
         }
         if(input$turnover_quantity %in% c('Taxa')){
           if(input$turnover_type_of_chart %in% c('Number Accessioned Over Time', 'Number of New to Collection', 'Divided into Type of Taxa')){
@@ -1377,8 +1389,22 @@ server <- function(input, output, session){
             selected = choices[match(input$turnover_type_of_chart, c('Number Accessioned Over Time', 'Number of New to Collection', 'Divided into Type of Taxa'))]
             updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = selected)
           }
+          if(input$turnover_type_of_chart %in% c('Number of Net to Collection')){
+            choices = c('Number Lost Over Time', 'Number of Lost to Collection', 'Divided into Type of Taxa')
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number of Lost to Collection')
+          }
         }
 
+      }
+      if(input$turnover_type == 'Net'){
+        if(input$turnover_quantity %in% c('Items', 'Accessions')){
+          click('button')
+
+          # Nothing required
+        }
+        if(input$turnover_quantity %in% c('Species', 'Genera', 'Families', 'Taxa')){
+          updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = 'Number of Net to Collection', selected = 'Number of Net to Collection')
+        }
       }
     }
     if(inputted_values$turnover_quantity != values$input_turnover_quantity){
@@ -1453,6 +1479,23 @@ server <- function(input, output, session){
             updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number Lost Over Time')        }
 
 
+        }
+      }
+      if(input$turnover_type == 'Net'){
+        if(input$turnover_quantity %in% c('Items', 'Accessions')){
+          choices = c('Number Over Time', 'Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species')
+          if(input$turnover_type_of_chart %in% choices){
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = input$turnover_type_of_chart)
+            click('button')
+
+            # Nothing required
+          }else{
+            updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = choices, selected = 'Number Over Time')
+          }
+
+        }
+        if(input$turnover_quantity %in% c('Species', 'Genera', 'Families', 'Taxa')){
+          updateSelectInput(session, inputId = 'turnover_type_of_chart', choices = 'Number of Net to Collection', selected = 'Number of Net to Collection')
         }
       }
     }
@@ -1820,6 +1863,19 @@ server <- function(input, output, session){
           values$turnover_wanted_data = info$turnover_wanted_data
         }
 
+        if(input$turnover_type == 'Net'){
+          if(isolate(input$turnover_quantity) %in% c('Items', 'Accessions')){
+            info_gain = get_chart_data_turnover(data_working, data_plant_existing, 'Gain', isolate(input$turnover_quantity), isolate(input$turnover_type_of_chart), years)
+            info_loss = get_chart_data_turnover(data_working, data_plant_existing, 'Loss', isolate(input$turnover_quantity), isolate(input$turnover_type_of_chart), years)
+          }else{
+            info_gain = get_chart_data_turnover(data_working, data_plant_existing, 'Gain', isolate(input$turnover_quantity), 'Number of New to Collection', years)
+            info_loss = get_chart_data_turnover(data_working, data_plant_existing, 'Loss', isolate(input$turnover_quantity), 'Number of Lost to Collection', years)
+          }
+
+          values$turnover_type = input$turnover_type
+          values$turnover_type_data = list(gain = info_gain$turnover_type_data, loss = info_loss$turnover_type_data)
+          values$turnover_wanted_data = list(gain = info_gain$turnover_wanted_data, loss = info_loss$turnover_wanted_data)
+        }
 
       }
 
@@ -2024,7 +2080,7 @@ server <- function(input, output, session){
       type_data = values$turnover_type_data
       print(dim(wanted_data))
 
-      if(isolate(input$turnover_type_of_chart) %in% c('Number Over Time')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Number Over Time') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, inherit = FALSE, name ='')
         fig <- fig %>% layout(title = "",
@@ -2045,7 +2101,7 @@ server <- function(input, output, session){
           )
 
       }
-      if(isolate(input$turnover_type_of_chart) %in% c('Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         # Get the names of the different lines.
         name_of_traces = names(wanted_data)
         name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
@@ -2102,7 +2158,7 @@ server <- function(input, output, session){
           ))
         )
       }
-      if(isolate(input$turnover_type_of_chart) %in% c('Number Accessioned Over Time')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Number Accessioned Over Time') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, inherit = FALSE, name ='')
         fig <- fig %>% layout(title = "",
@@ -2124,7 +2180,7 @@ server <- function(input, output, session){
 
 
       }
-      if(isolate(input$turnover_type_of_chart) %in% c('Number of New to Collection')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Number of New to Collection') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         # Produce the chart.
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$new_to_year)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~new_to_year, inherit = FALSE, name ='')
@@ -2158,7 +2214,7 @@ server <- function(input, output, session){
 
 
       }
-      if(isolate(input$turnover_type_of_chart) %in% c('Number Lost Over Time')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Number Lost Over Time') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$no_wanted)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~no_wanted, inherit = FALSE, name ='')
         fig <- fig %>% layout(title = "",
@@ -2180,7 +2236,7 @@ server <- function(input, output, session){
 
 
       }
-      if(isolate(input$turnover_type_of_chart) %in% c('Number of Lost to Collection')){
+      if(isolate(input$turnover_type_of_chart) %in% c('Number of Lost to Collection') && isolate(input$turnover_type) %in% c('Gain','Loss')){
         # Produce the chart.
         fig = regions_plot(event_data = event_values$dfWorking, ylim = c(0, max(wanted_data$loss_to_year)), add_annotate = input$add_annotate)
         fig <- fig %>% add_trace(type = 'scatter', mode = 'lines', data = wanted_data, x = ~year, y = ~loss_to_year, inherit = FALSE, name ='')
@@ -2212,6 +2268,126 @@ server <- function(input, output, session){
           ))
         )
 
+
+      }
+
+      # Outputs for Net turnovers.
+      if(isolate(input$turnover_type_of_chart) %in% c('Number Over Time') && isolate(input$turnover_type) %in% c('Net')){
+        net = wanted_data$gain$no_wanted - wanted_data$loss$no_wanted
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
+
+        text = paste0('Date: ', wanted_data$gain$year,
+                      '<br> Gain:', wanted_data$gain$no_wanted,
+                      '<br> Loss:', wanted_data$loss$no_wanted,
+                      '<br> Net:', net)
+        plus_minus = net > 0
+
+        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+        fig <- fig %>% layout(title = "",
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Net Number of ",type_data)))
+        fig <- fig %>% layout(hovermode = 'x')
+        fig <- fig %>% layout(showlegend = FALSE)
+        fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+
+
+        p = htmltools::browsable(
+          tagList(list(
+            tags$div(h3(paste0('Net Number of ', type_data[[1]]))),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              fig
+            )
+          ))
+        )
+
+      }
+      if(isolate(input$turnover_type_of_chart) %in% c('Number of Net to Collection') && isolate(input$turnover_type) %in% c('Net')){
+        net = wanted_data$gain$new_to_year - wanted_data$loss$loss_to_year
+        fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
+
+        text = paste0('Date: ', wanted_data$gain$year,
+                      '<br> Gain:', wanted_data$gain$new_to_year,
+                      '<br> Loss:', wanted_data$loss$loss_to_year,
+                      '<br> Net:', net)
+        plus_minus = net > 0
+
+        fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+        fig <- fig %>% layout(title = "",
+                              xaxis = list(title = "Year"),
+                              yaxis = list (title = paste0("Net Number of ",type_data)))
+        fig <- fig %>% layout(hovermode = 'x')
+        fig <- fig %>% layout(showlegend = FALSE)
+        fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+
+        #Create linked table.
+        table_data = data.frame(Year = wanted_data$gain$year, gain = wanted_data$gain[[3]], loss = wanted_data$loss[[3]])
+        names(table_data) = c('Year', 'Gained', 'Lost')
+        table_data = table_data[nrow(table_data):1,]
+        dt  = datatable(table_data, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE)
+
+        p = htmltools::browsable(
+          tagList(list(
+            tags$div(h3(paste0('Net Number of ', type_data[[1]]))),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              fig
+            ),
+            tags$div(htmltools::p('')),
+            tags$div(htmltools::p('Linked table')),
+            tags$div(
+              style = 'width:100%;display:block;float:left;',
+              dt
+            )
+          ))
+        )
+
+
+      }
+      if(isolate(input$turnover_type_of_chart) %in% c('Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species') && isolate(input$turnover_type) %in% c('Net')){
+        gain = wanted_data$gain
+        loss = wanted_data$loss
+        # Get the names of the different lines.
+        name_of_traces = unique(c(names(gain),names(loss)))
+        name_of_traces = name_of_traces[!name_of_traces == 'year']
+        # name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
+
+        # create the net turnover for each.
+        figures= list()
+        for(i in 1:length(name_of_traces)){
+          gain_no = as.numeric(unlist(gain[match(name_of_traces[i], names(gain))]))
+          loss_no = as.numeric(unlist(loss[match(name_of_traces[i], names(loss))]))
+
+          net = gain_no - loss_no
+          # fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = input$add_annotate)
+          fig = regions_plot(event_data = event_values$dfWorking, ylim = c(min(net), max(net)), add_annotate = F)
+
+          text = paste0('Date: ', wanted_data$gain$year,
+                        '<br> Gain:', gain_no,
+                        '<br> Loss:',  loss_no,
+                        '<br> Net:', net)
+          plus_minus = net > 0
+
+          fig <- fig %>% add_trace(type = 'bar', x = wanted_data$gain$year, y = net, inherit = FALSE, name ='', hovertext = text, hoverinfo = 'text',  color = plus_minus, colors = c('red','blue'))
+          fig <- fig %>% layout(title = "",
+                                xaxis = list(title = "Year"),
+                                yaxis = list (title = paste0("Net Number of ",type_data[[1]])))
+          fig <- fig %>% layout(hovermode = 'x')
+          fig <- fig %>% layout(showlegend = FALSE)
+          fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+          figures[[i]] = fig
+
+        }
+        name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
+
+        to_eval = paste0("tags$div(h3(paste0('Net ", type_data[[1]], " Over Time For ",name_of_traces,"' ))), tags$div(style = 'width:100%;display:block;float:left;', figures[[",1:length(figures),"]] ), ", collapse ='')
+        to_eval = stringr::str_sub(to_eval,start = 1,end = -3)
+        to_eval = paste0('htmltools::browsable(
+          tagList(list(',to_eval,
+          '          ))
+        )', collapse='')
+
+      p=  eval(parse(text=to_eval))
 
       }
 
