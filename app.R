@@ -1838,32 +1838,32 @@ server <- function(input, output, session){
           time_series_info = lapply(working_with_plant_existing, function(x){
             garden_current = working_with_data[x,]
 
-            # Breakdown of threatened
-            breakdown = table(garden_current$threatened)
+            # Breakdown of endemic
+            breakdown = table(garden_current$endemic)
 
             return(list(breakdown = breakdown))
           })
-          type_data = 'Threatened Species'
+          type_data = 'Endemic Species'
 
           #Get the unique Provenance codes for the collection
-          unique_no_threatened_values = unique(values$data$threatened)[!is.na(unique(values$data$threatened))]
+          unique_no_endemic_values = unique(values$data$endemic)[!is.na(unique(values$data$endemic))]
 
           # Get the number of plants with provenance code for each year.
           no_items = data.frame(t(data.frame(lapply(time_series_info, function(x){
             details = x$breakdown
 
-            no_threatened = as.numeric(details[match(unique_no_threatened_values, names(details))])
-            no_threatened[is.na(no_threatened)] = 0
+            no_endemic = as.numeric(details[match(unique_no_endemic_values, names(details))])
+            no_endemic[is.na(no_endemic)] = 0
 
-            return(no_threatened)
+            return(no_endemic)
           }))))
-          names(no_items) = unique_no_threatened_values
+          names(no_items) = unique_no_endemic_values
 
           prop = round(no_items/rowSums(no_items)*100,digits=2)
           names(prop) =paste0(names(prop),'_prop')
-          threatened_data = data.frame(year = years, no_items, prop)
+          endemic_data = data.frame(year = years, no_items, prop)
 
-          values$wanted_data = threatened_data
+          values$wanted_data = endemic_data
           values$type_data = type_data
         }
         if(input$single_value_value_type %in% c('Items','Accessions') && input$single_value_chart == 'Divided into Threatened Species'){
