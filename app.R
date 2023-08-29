@@ -1150,7 +1150,8 @@ server <- function(input, output, session){
 
   values <- reactiveValues(data = data.frame(1), wanted_data = NA, type_data = NA,
                            turnover_wanted_data = NA, turnover_type_data = NA, turnover_type = NA,
-                           input_turnover_type_of_chart = 'Number Over Time', input_turnover_quantity = 'Accessions', input_turnover_type = 'Gain')
+                           input_turnover_type_of_chart = 'Number Over Time', input_turnover_quantity = 'Accessions', input_turnover_type = 'Gain',
+                           input_single_value_value_type = 'Accessions', input_single_value_chart = 'Number Over Time')
 
   min_year = min(enriched_report$AccYear[enriched_report$AccYear>1750],na.rm = T) + 1
   year_cur = as.numeric(format(Sys.Date(),'%Y'))
@@ -1317,19 +1318,6 @@ server <- function(input, output, session){
     print('In change max year')
     if(input$single_value_max_year != '' & input$single_value_max_year != ''){
       updateSelectInput(session, inputId = 'single_value_min_year', choices = as.numeric(min_year):(as.numeric(input$single_value_max_year)+1), selected = as.numeric(input$single_value_min_year))
-    }
-  })
-
-  observeEvent(input$single_value_value_type,{
-    print('In change to single_value_type')
-    print(input$single_value_value_type)
-    if(input$single_value_value_type %in% c('Items', 'Accessions')){
-      updateSelectInput(session, inputId = 'single_value_chart', choices = c('Number Over Time', 'Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species'), selected = 'Number Over Time')
-    }else if(input$single_value_value_type %in% c('Species', 'Genera', 'Families')){
-      updateSelectInput(session, inputId = 'single_value_chart', choices = c('Number Over Time'), selected = 'Number Over Time')
-    }
-    else if(input$single_value_value_type %in% c('Taxa')){
-      updateSelectInput(session, inputId = 'single_value_chart', choices = c('Number Over Time', 'Divided into Type of Taxa'), selected = 'Number Over Time')
     }
   })
 
@@ -1539,6 +1527,66 @@ server <- function(input, output, session){
     #   }
     # }
   })
+
+  observeEvent(input$single_value_chart,{
+    print('Change single_value_chart')
+    print(input$single_value_chart)
+    print('-----------')
+    click('button')
+  })
+
+  observeEvent(input$single_value_value_type,{
+
+                   print('Update whole collection inputs')
+                   inputted_values = list(single_value_value_type = input$single_value_value_type,
+                                          single_value_chart = input$single_value_chart)
+                   # Change to turnover type
+                   if(inputted_values$single_value_value_type != values$input_single_value_value_type){
+                     print('In change to single_value_value_type')
+                     print(input$single_value_value_type)
+
+                     if(input$single_value_value_type %in% c('Items', 'Accessions')){
+                       choices = c('Number Over Time', 'Divided into Type of Taxa', 'Divided into Provenance', 'Divided into Endemic Species', 'Divided into Threatened Species')
+                       if(input$single_value_chart %in% choices){
+                         updateSelectInput(session, inputId = 'single_value_chart', choices = choices, selected = input$single_value_chart)
+                         click('button')
+
+                         # Nothing required
+                       }else{
+                         updateSelectInput(session, inputId = 'single_value_chart', choices = choices, selected = 'Number Over Time')
+                       }
+
+                     }
+                     if(input$single_value_value_type %in% c('Species', 'Genera', 'Families')){
+                       choices = c('Number Over Time')
+                       if(input$single_value_chart %in% choices){
+                         click('button')
+
+                         # Nothing required
+                       } else{
+                         updateSelectInput(session, inputId = 'single_value_chart', choices = choices, selected = 'Number Over Time')
+                       }
+
+                     }
+                     if(input$single_value_value_type %in% c('Taxa')){
+                       choices = c('Number Over Time', 'Divided into Type of Taxa')
+                       if(input$single_value_chart %in% choices){
+                         updateSelectInput(session, inputId = 'single_value_chart', choices = choices, selected = input$single_value_chart)
+                         click('button')
+
+                         # Nothing required
+                       } else{
+                         updateSelectInput(session, inputId = 'single_value_chart', choices = choices, selected = 'Number Over Time')        }
+
+
+                     }
+                   }
+
+
+                   values$input_single_value_value_type = input$single_value_value_type
+                   values$input_single_value_chart = input$single_value_chart
+                 })
+
   #---- (END) User conditional select values -------------------------------
 
   #---- User graph/chart options  --------------------------
@@ -1579,8 +1627,6 @@ server <- function(input, output, session){
                  input$enrichment_status,
                  input$filter_family,
                  input$main_tabs,
-                 input$single_value_value_type,
-                 input$single_value_chart,
                  input$button),{
 
     print('In create data for charts')
@@ -2023,7 +2069,7 @@ server <- function(input, output, session){
         }
         fig1 <- fig1 %>% layout(title = "",
                                 xaxis = list(title = "Year"),
-                                yaxis = list (title = paste0("Number of ", input$single_value_value_type),
+                                yaxis = list (title = paste0("Number of ", isolate(input$single_value_value_type)),
                                               hoverformat = ",.0f"))
         fig1 <- fig1 %>% layout(hovermode = 'x unified')
 
@@ -2049,7 +2095,7 @@ server <- function(input, output, session){
       }
       fig2 <- fig2 %>% layout(title = "",
                               xaxis = list(title = "Year"),
-                              yaxis = list (title =  paste0("Proportion of ", input$single_value_value_type),
+                              yaxis = list (title =  paste0("Proportion of ", isolate(input$single_value_value_type)),
                                             tickformat = ".0%",
                                             hoverformat = '.2%'))
       fig2 <- fig2 %>% layout(hovermode = 'x unified')
@@ -2057,12 +2103,12 @@ server <- function(input, output, session){
 
       p = htmltools::browsable(
         tagList(list(
-          tags$div(h3(paste0('Number of ', input$single_value_value_type, ' by ', type_data))),
+          tags$div(h3(paste0('Number of ', isolate(input$single_value_value_type), ' by ', type_data))),
           tags$div(
             style = 'width:100%;display:block;float:left;',
             fig1
           ),
-          tags$div(h3(paste0('Proportion of ', input$single_value_value_type, ' by ', type_data))),
+          tags$div(h3(paste0('Proportion of ', isolate(input$single_value_value_type), ' by ', type_data))),
           tags$div(
             style = 'width:100%;display:block;float:left;',
             fig2
