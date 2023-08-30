@@ -744,7 +744,6 @@ ui <- fluidPage(#theme = shinytheme("united"),
   sidebarPanel(HTML('<h4>Current Selection:</h4>'),
                uiOutput('summary'),
                hr(),
-
                tabsetPanel(type = "tabs",
                            tabPanel("Chart Options",
                                     HTML('Choose the year range to show for charts/graphs in <b>Whole Collection</b> and <b>Turnover</b>.'),
@@ -796,11 +795,14 @@ ui <- fluidPage(#theme = shinytheme("united"),
 
   # Main panel for displaying outputs ----
   mainPanel(
-
+    fluidRow(
+      column(12, div(disabled(downloadButton('downloadData', 'Download Data')), style = "float: right"))),
     # Output: Tabset w/ plot, summary, and table ----
     tabsetPanel(id = 'main_tabs', type = "tabs",
                 tabPanel("Info", HTML('<h3>Welcome to the change over time app!</h3> This app provides a tool for examining how a living collection has varied over time.
                                       <br> The sidebar provides summary details of the selected data, controls global parameters that filter the data and default time window. To change the default time window or chart colours go to the <b>Chart Options</b> tab. Controls for filtering the data is found in the <b>Filters</b> tab. The Global Filters are: <br> <b>Provenance:</b> Filter the provenance of the items. <br> <b>Type of Taxa:</b> Filter the collection by the type of taxa. Note that taxa can be tagged as multiple types such as <i> Salix × fragilis f. vitellina </i> as both hybrid and forma. In this case, the taxa will be kept by either restricting to hybrids or forma. <br> <b>Geography controls:</b> This contains a selection of controls to filter the taxa by their distribution. The level allows a choice between Level 1 (Continents), Level 2 (larger regions) and Level 3 (smaller regions) using wgsrpd3 breakdown (<a href="https://www.tdwg.org/standards/wgsrpd/">see here</a>). Changing the level will automatically change the regions you can select. Using the region box you can filter the taxa by one or more areas. The location of a taxon can be described as naturally occurring or introduced, extinct or not and location doubtful or not. By default we select only naturally occuring locations that are neither extinct or doubtful. To change these settings you can update <b>location type</b> for naturally occurring/introduced and the switches to allow extinct or doubtful areas. <br> <b>Threatened:</b> Filter by threatened status of Taxa (using IUCN redlist). If "Threatened" is selected another filter will appear below where you can choose between threatened categories. <br> <b> Endemic:</b> Filter by endemic speices, where we define a species as endemic if its distriubtion is a single level 3 area which is neither extinct or doubtful.  <br> <b>POWO match status:</b> Filter by records which matched to Plants of the World Online (POWO) or not. <br> <b>Number of Global Collections: </b> Filter the collection by the number of collections a taxon is found in worldwide using BGCI records (Older version of plantsearch).  <br><br>
+
+                                      In the top right hand corner there is the <b>Download Data</b> button, when on either the <b>Whole Collection</b> or <b>Turnover</b> tabs the button will enable. Clicking the button will download a zipped folder containing the interactive widgets currently shown on the main panel and an excel file containing: the app inputs, the historical events and the table of data used in creating the widgets.  <br><br>
                                       The app also contains four tabs: <br>
                                       <b>Info:</b> Explains how to use the app. <br>
                                       <b>Data:</b> Shows the underlying data. <br>
@@ -1151,7 +1153,8 @@ server <- function(input, output, session){
   values <- reactiveValues(data = data.frame(1), wanted_data = NA, type_data = NA,
                            turnover_wanted_data = NA, turnover_type_data = NA, turnover_type = NA,
                            input_turnover_type_of_chart = 'Number Over Time', input_turnover_quantity = 'Accessions', input_turnover_type = 'Gain',
-                           input_single_value_value_type = 'Accessions', input_single_value_chart = 'Number Over Time')
+                           input_single_value_value_type = 'Accessions', input_single_value_chart = 'Number Over Time',
+                           figures = NA, figures_titles = NA)
 
   min_year = min(enriched_report$AccYear[enriched_report$AccYear>1750],na.rm = T) + 1
   year_cur = as.numeric(format(Sys.Date(),'%Y'))
@@ -1518,14 +1521,13 @@ server <- function(input, output, session){
 
   observeEvent(input$main_tabs,{
     print('Change tab')
-    if(input$main_tabs %in% c('Whole Collection', 'Turnover'))
-    click('button')
-    # if(is.na(values$turnover_wanted_data[1])){
-    #   if(input$main_tabs == 'Turnover'){
-    #     print('Click Button')
-    #
-    #   }
-    # }
+    if(input$main_tabs %in% c('Whole Collection', 'Turnover')){
+      enable('downloadData')
+      click('button')
+    }else{
+      disable('downloadData')
+    }
+
   })
 
   observeEvent(input$single_value_chart,{
@@ -2036,6 +2038,8 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0("Number of ",type_data)
 
         p = htmltools::browsable(
           tagList(list(
@@ -2100,6 +2104,10 @@ server <- function(input, output, session){
                                             hoverformat = '.2%'))
       fig2 <- fig2 %>% layout(hovermode = 'x unified')
       fig2 <- fig2  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+      figs = list(fig1, fig2)
+      figures_titles = c(paste0("Number of ", isolate(input$single_value_value_type)),
+                         paste0("Proportion of ", isolate(input$single_value_value_type)))
+
 
       p = htmltools::browsable(
         tagList(list(
@@ -2117,7 +2125,8 @@ server <- function(input, output, session){
       )
       }
 
-
+    values$figures = figs
+    values$figures_titles = figures_titles
     p
     }
 
@@ -2144,7 +2153,8 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
-
+        figs = list(fig)
+        figures_titles = paste0('Number of ', values$turnover_type,' ', type_data)
 
           p = htmltools::browsable(
             tagList(list(
@@ -2199,6 +2209,11 @@ server <- function(input, output, session){
         fig2 <- fig2 %>% layout(hovermode = 'x unified')
         fig2 <- fig2 %>% layout(legend = list(orientation = 'h', x = 0, y = 1.1))
         fig2 <- fig2  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig1, fig2)
+        figures_titles = c(paste0('Number of New ', type_data, ' Over Time ', isolate(input$turnover_type_of_chart) )
+                           ,  paste0('Proportion of New ', type_data, ' Over Time ', isolate(input$turnover_type_of_chart) ))
+
+
         p = htmltools::browsable(
           tagList(list(
             tags$div(h3(paste0('Number of New ', type_data, ' Over Time ', isolate(input$turnover_type_of_chart) ))),
@@ -2222,6 +2237,9 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Number of ', type_data, ' With New Items By Year')
+
 
         p = htmltools::browsable(
           tagList(list(
@@ -2245,6 +2263,9 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Number of New ', type_data, ' Added to the Collection Each Year')
+
 
         #Create linked table.
         names(wanted_data) = c('Year', 'Number', type_data)
@@ -2278,6 +2299,9 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Number of ', type_data, ' With Items Lost By Year')
+
 
         p = htmltools::browsable(
           tagList(list(
@@ -2301,6 +2325,9 @@ server <- function(input, output, session){
                               yaxis = list (title = paste0("Number of ",type_data)))
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Number of ', type_data, ' Lost to the Collection Each Year')
+
 
         #Create linked table.
         names(wanted_data) = c('Year', 'Number', type_data)
@@ -2348,6 +2375,8 @@ server <- function(input, output, session){
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig %>% layout(showlegend = FALSE)
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Net Number of ', type_data[[1]])
 
 
         p = htmltools::browsable(
@@ -2380,6 +2409,9 @@ server <- function(input, output, session){
         fig <- fig %>% layout(hovermode = 'x')
         fig <- fig %>% layout(showlegend = FALSE)
         fig <- fig  %>%layout(xaxis = list(range=c(as.numeric(input$single_value_min_year),as.numeric(input$single_value_max_year))))
+        figs = list(fig)
+        figures_titles = paste0('Net Number of ', type_data[[1]])
+
 
         #Create linked table.
         table_data = data.frame(Year = wanted_data$gain$year, gain = wanted_data$gain[[3]], loss = wanted_data$loss[[3]])
@@ -2441,7 +2473,10 @@ server <- function(input, output, session){
           figures[[i]] = fig
 
         }
+        figs = figures
         name_of_traces = stringr::str_replace_all(name_of_traces,pattern = '\\.',' ')
+        figures_titles = paste0('Net ', type_data[[1]], ' Over Time For ', name_of_traces)
+
 
         to_eval = paste0("tags$div(h3(paste0('Net ", type_data[[1]], " Over Time For ",name_of_traces,"' ))), tags$div(style = 'width:100%;display:block;float:left;', figures[[",1:length(figures),"]] ), ", collapse ='')
         to_eval = stringr::str_sub(to_eval,start = 1,end = -3)
@@ -2454,11 +2489,219 @@ server <- function(input, output, session){
 
       }
 
+      values$figures = figs
+      values$figures_titles = figures_titles
 
       p
     }
 
   })
+
+  # ==== Download the chart/graph data. ====
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste('Change_Over_Time_App_Download-', Sys.Date(), '.zip', sep='')
+    },
+    content = function(con) {
+      print('create download content')
+      # Setup files to be zipped.
+      fs <- c()
+      tmpdir <- tempdir()
+      setwd(tempdir())
+
+      ########
+      # Underlying data (xlsx)
+      ########
+      # Name of the excel file.
+      path = paste0('Underlying_data_and_inputs.xlsx')
+      fs <- c(fs, path)
+
+      # Create a workbook.
+      wb = xlsx::createWorkbook()
+
+      # Sheet 1: The inputs to the app.
+      # write.csv(values$data, con)
+      sh1 = xlsx::createSheet(wb, 'App Inputs')
+      xlsx::setColumnWidth(sh1, colIndex=1:2, colWidth=28)
+      i=1
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1)
+      xlsx::setCellValue(cell[[1]], 'Inputs entered into the app')
+      i=i+2
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1)
+      xlsx::setCellValue(cell[[1]], 'Graph Inputs:')
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Tab:')
+      xlsx::setCellValue(cell[[2]], input$main_tabs)
+      i=i+1
+
+      if(input$main_tabs == 'Whole Collection'){
+        row = xlsx::createRow(sh1,i)
+        cell = xlsx::createCell(row,1:2)
+        xlsx::setCellValue(cell[[1]], 'Breakdown By:')
+        xlsx::setCellValue(cell[[2]], input$single_value_value_type)
+        i=i+1
+
+        row = xlsx::createRow(sh1,i)
+        cell = xlsx::createCell(row,1:2)
+        xlsx::setCellValue(cell[[1]], 'Chart:')
+        xlsx::setCellValue(cell[[2]], input$single_value_chart)
+        i=i+3
+      }
+      else{
+        row = xlsx::createRow(sh1,i)
+        cell = xlsx::createCell(row,1:2)
+        xlsx::setCellValue(cell[[1]], 'Turnover:')
+        xlsx::setCellValue(cell[[2]], input$turnover_type)
+        i=i+1
+
+        row = xlsx::createRow(sh1,i)
+        cell = xlsx::createCell(row,1:2)
+        xlsx::setCellValue(cell[[1]], 'Breakdown By:')
+        xlsx::setCellValue(cell[[2]], input$turnover_quantity)
+        i=i+1
+
+        row = xlsx::createRow(sh1,i)
+        cell = xlsx::createCell(row,1:2)
+        xlsx::setCellValue(cell[[1]], 'Chart:')
+        xlsx::setCellValue(cell[[2]], input$turnover_type_of_chart)
+        i=i+3
+      }
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1)
+      xlsx::setCellValue(cell[[1]], 'Filters:')
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Provenance:')
+      xlsx::setCellValue(cell[[2]], paste0(input$provenance, collapse =', '))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Type of Taxa:')
+      xlsx::setCellValue(cell[[2]], paste0(input$infra, collapse =', '))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Family:')
+      xlsx::setCellValue(cell[[2]],  paste0(input$filter_family, collapse =', '))
+      i=i+2
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Geography Controls:')
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Level:')
+      xlsx::setCellValue(cell[[2]], paste0(input$region_levels, collapse =', '))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Region:')
+      xlsx::setCellValue(cell[[2]], paste0(input$region, collapse =', '))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Location type:')
+      xlsx::setCellValue(cell[[2]], input$Geography_Native_global)
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Include Extinct:')
+      xlsx::setCellValue(cell[[2]], as.character(input$extinct_switch_global))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Include Doubtful:')
+      xlsx::setCellValue(cell[[2]], as.character(input$doubtful_locations_switch_global))
+      i=i+2
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Include Extinct:')
+      xlsx::setCellValue(cell[[2]], as.character(input$extinct_switch_global))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Threatened:')
+      xlsx::setCellValue(cell[[2]], as.character(input$threatened))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Threatened Category:')
+      xlsx::setCellValue(cell[[2]], paste0(input$threatened_cat,collapse=', '))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Endemic:')
+      xlsx::setCellValue(cell[[2]], as.character(input$endemic))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'POWO Match Status:')
+      xlsx::setCellValue(cell[[2]], as.character(input$enrichment_status))
+      i=i+1
+
+      row = xlsx::createRow(sh1,i)
+      cell = xlsx::createCell(row,1:2)
+      xlsx::setCellValue(cell[[1]], 'Number of Collections Globally:')
+      xlsx::setCellValue(cell[[2]], paste0(input$extant, collapse=' - '))
+      i=i+1
+
+      # Sheet 2: The Events added.
+      sh2 = xlsx::createSheet(wb, 'Events in Time')
+      xlsx::setColumnWidth(sh2, colIndex=1:3, colWidth=12)
+
+      xlsx::addDataFrame(event_values$dfWorking,sh2,row.names = FALSE)
+
+      # Sheet 3 onwards: The data.
+      if(input$main_tabs == 'Whole Collection'){
+        data = values$wanted_data
+      }
+      else if(input$main_tabs == 'Turnover'){
+        data = values$turnover_wanted_data
+      }
+      if(is.data.frame(data)){
+        data = list(Data = data)
+      }
+      for(i in 1:length(data)){
+        sheet =  xlsx::createSheet(wb, names(data)[i])
+        xlsx::addDataFrame(data[[i]],sheet, row.names = FALSE)
+      }
+      # Save the excel workbook
+      xlsx::saveWorkbook(wb, file = path)
+
+      # Save the interactive plots shown in the main panel.
+      no_plots = length(values$figures)
+      for(i in 1:no_plots){
+        path = paste0('MainPanel_output', i, '.html')
+        fs <- c(fs, path)
+        htmlwidgets::saveWidget(values$figures[[i]],file = path, title =  values$figures_titles[i])
+      }
+
+      #html output
+      zip::zip(zipfile=con, files=fs)
+    }
+  )
 
 }
 
