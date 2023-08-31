@@ -851,6 +851,29 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          hr(),
                          uiOutput('change_time_turnover', width = '100%', height = '100%')),
 
+                tabPanel("Geography",
+                         HTML('This tab is to view the geographic distribution of the collection over time. <br> Below you can choose which distributions of a taxa you want to show, by specifying whether the locations correspond to  naturally occuring (native), extinct locations or doubtful locations. These conditions correspond to the distribution data obtained from Plants of the World Online. For example see <a href=" https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:721150-1">Alchemilla saxatilis</a>.  <br> You can view the plants in the collection for a given year and location by clicking on the map. This is shown underneath the map. <br> Note that the map may take a while to load (this depends on the number of items exisiting in a given year).'),
+                         hr(),
+                         fluidRow(
+                           column(
+                             width = 4, selectInput(inputId = 'Geography_Native', label = 'Location type:',choices = c('All', 'Native only', 'Non-native only'), selected = 'Native only', multiple = FALSE)),
+                           column(
+                             width = 4, selectInput(inputId = 'Geography_level', label = 'Level to show:',choices = c('Level 3'), selected = 'Level 3', multiple = FALSE)),
+                           column(
+                             width = 4,
+                             prettySwitch(inputId = "extinct_switch", label = "Include Extinct locations", fill = TRUE, status = "primary"),
+                             prettySwitch(inputId = "doubtful_locations_switch", label = "Include Doubtful locations", fill = TRUE, status = "primary"))
+                         ),
+                         fluidRow(
+                           column( width = 6, selectInput(inputId = 'geography_year', label = 'Year:',choices = NULL, selected = NULL, multiple = FALSE)),
+                           column( width = 6, selectInput(inputId = 'geography_to_show', label = 'To Show:',choices = c('Items in Collection', 'Turnover - Gain (Items)', 'Turnover - Loss (Items)', 'Turnover - Net (Items)' ), selected = 'Items in Collection', multiple = FALSE)),
+                         ),
+                         hr(),
+                         plotlyOutput('geography_C', width = '100%', height = '100%'),
+                         uiOutput('geography_D', width = '100%', height = '100%'),
+                         shinyjs::hidden(actionButton(inputId = 'geography_button',label = 'button'))
+                         ),
+
                 tabPanel("Options",
                          hr(),
                          HTML('<h3>Add events through time:</h3>'),
@@ -1033,35 +1056,35 @@ server <- function(input, output, session){
   # wgsrpd3 = wgsrpd3_level3_simp
 
   # Convert geometries (level1,2,3) into a format accepted by plotly
-  # mapp = sf::st_cast(wgsrpd3_level3_simp, "MULTIPOLYGON")
-  # geo_sf = geojsonsf::sf_geojson(mapp)
-  # data = rjson::fromJSON(geo_sf)
-  # feat = data$features
-  # for(i in 1:length(feat)){
-  #   feat[[i]]$id = feat[[i]]$properties$code
-  # }
-  # data$features = feat
-  # data_level3 = data
-  #
-  # mapp = sf::st_cast(wgsrpd3_level2_simp, "MULTIPOLYGON")
-  # geo_sf = geojsonsf::sf_geojson(mapp)
-  # data = rjson::fromJSON(geo_sf)
-  # feat = data$features
-  # for(i in 1:length(feat)){
-  #   feat[[i]]$id = feat[[i]]$properties$code
-  # }
-  # data$features = feat
-  # data_level2 = data
-  #
-  # mapp = sf::st_cast(wgsrpd3_level1_simp, "MULTIPOLYGON")
-  # geo_sf = geojsonsf::sf_geojson(mapp)
-  # data = rjson::fromJSON(geo_sf)
-  # feat = data$features
-  # for(i in 1:length(feat)){
-  #   feat[[i]]$id = feat[[i]]$properties$code
-  # }
-  # data$features = feat
-  # data_level1 = data
+  mapp = sf::st_cast(wgsrpd3_level3_simp, "MULTIPOLYGON")
+  geo_sf = geojsonsf::sf_geojson(mapp)
+  data = rjson::fromJSON(geo_sf)
+  feat = data$features
+  for(i in 1:length(feat)){
+    feat[[i]]$id = feat[[i]]$properties$code
+  }
+  data$features = feat
+  data_level3 = data
+
+  mapp = sf::st_cast(wgsrpd3_level2_simp, "MULTIPOLYGON")
+  geo_sf = geojsonsf::sf_geojson(mapp)
+  data = rjson::fromJSON(geo_sf)
+  feat = data$features
+  for(i in 1:length(feat)){
+    feat[[i]]$id = feat[[i]]$properties$code
+  }
+  data$features = feat
+  data_level2 = data
+
+  mapp = sf::st_cast(wgsrpd3_level1_simp, "MULTIPOLYGON")
+  geo_sf = geojsonsf::sf_geojson(mapp)
+  data = rjson::fromJSON(geo_sf)
+  feat = data$features
+  for(i in 1:length(feat)){
+    feat[[i]]$id = feat[[i]]$properties$code
+  }
+  data$features = feat
+  data_level1 = data
 
 
   report = enriched_report
@@ -1154,12 +1177,14 @@ server <- function(input, output, session){
                            turnover_wanted_data = NA, turnover_type_data = NA, turnover_type = NA,
                            input_turnover_type_of_chart = 'Number Over Time', input_turnover_quantity = 'Accessions', input_turnover_type = 'Gain',
                            input_single_value_value_type = 'Accessions', input_single_value_chart = 'Number Over Time',
-                           figures = NA, figures_titles = NA)
+                           figures = NA, figures_titles = NA,
+                           wgsrpd3 = NA)
 
   min_year = min(enriched_report$AccYear[enriched_report$AccYear>1750],na.rm = T) + 1
   year_cur = as.numeric(format(Sys.Date(),'%Y'))
 
   years = min_year:year_cur
+  updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = year_cur)
   updateSelectInput(session, inputId = 'single_value_min_year', choices = min_year:year_cur, selected = min_year)
   updateSelectInput(session, inputId = 'single_value_max_year', choices = min_year:year_cur, selected = year_cur)
   updateSelectInput(session, inputId = 'single_value_value_type', selected = 'Items')
@@ -2702,7 +2727,309 @@ server <- function(input, output, session){
       zip::zip(zipfile=con, files=fs)
     }
   )
+  #---- (End)  Download the chart/graph data ----------
 
+  #### ====== Geography tab section ==========
+  min_year = min(enriched_report$AccYear[enriched_report$AccYear>1750],na.rm = T) + 1
+  year_cur = as.numeric(format(Sys.Date(),'%Y'))
+
+  years = min_year:year_cur
+  updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year+1)
+
+  #Stores for geography data.
+  geography_reactive_values =  reactiveValues(data_for_linked_table = NA,
+                                              data_for_map_plotly = NA,
+                                              wgsrpd3 = NA)
+  #Get data for geography pane.
+  observeEvent(c(input$extant,
+                 input$provenance,
+                 input$infra,
+                 input$threatened,
+                 input$endemic,
+                 input$threatened_cat,
+                 input$region,
+                 input$Geography_Native_global,
+                 input$extinct_switch_global,
+                 input$doubtful_locations_switch_global,
+                 input$enrichment_status,
+                 input$filter_family,
+                 input$chart_colour,
+
+                 input$geography_year,
+                 input$geography_to_show,
+                 input$Geography_Native,
+                 input$Geography_level,
+                 input$extinct_switch,
+                 input$doubtful_locations_switch,
+                 input$geography_button),{
+                   print('Get Geography data')
+                   # The point of this observe event is to extract the number of "objects" each region on the choroplethmapbox (world map) chart has. This depends on the filters on the sidebar, the year on the geography pane and the "to_show" option.
+
+                   # Step A: Reduce the data to only the relevant records.
+                   # 1) Get the filtered records.
+                   wanted_data = values$data
+
+                   # 2) Reduce to only plants existing in the year of interest.
+                   wanted_index = unlist(values$plant_existing[grepl(input$geography_year, names(values$plant_existing))])
+                   wanted_data = wanted_data[wanted_index,]
+
+                   # 3) Reduce to only records that have geogrpahic distribution (i.e matched to POWO)
+                   wanted_data = wanted_data[grepl('POWO',wanted_data$enrichment_status),]
+
+                   wanted_data = wanted_data[!grepl('0',wanted_data$infrageneric_level),]
+
+                   # Step B: From the relevant records the geographic distribution is given in 7 columns depending on native/not native, extinct, doubtful. Therefore, depending on the selection on the page we need to combine these columns to get the regions of interest.
+                   # The 7 columns, assume we want them all originally.
+                   want = c('000','010','001','011','100','110','101')
+                   # 1) Reduce by Native/notnative/both
+                   if(input$Geography_Native == 'Non-native only'){
+                     want = want[grepl('^1',want)]
+                   }else if(input$Geography_Native == 'Native only'){
+                     want = want[grepl('^0',want)]
+                   }
+                   # 2) Reduce by if we want Extinct or not
+                   if(!input$extinct_switch){
+                     want = want[!grepl('010|011|110',want)]
+                   }
+                   # 3)  Reduce by if we want Doubtful or not.
+                   if(!input$doubtful_locations_switch){
+                     want = want[!grepl('001|011|101',want)]
+                   }
+                   # Print the remaining values left in want.
+                   print(want)
+                   #Select the columns from the wanted data. (i.e the columns named in the format POWO_Dist_000_area_code_l3)
+                   level3_wanted = wanted_data[,grepl(paste0(want,collapse='|'), names(wanted_data))]
+                   # Merge the codes given in the columns.
+                   if(length(want)==0){
+                     return()
+                   }
+                   if(length(want) > 1){
+                     wanted_data$level3codes =do.call("paste", c(level3_wanted, sep = ", "))
+                   }else{
+                     wanted_data$level3codes = level3_wanted
+                   }
+
+                   # Step 3: Need to decide whaich level (1,2,3) we want to plot.
+                   if(input$Geography_level == 'Level 1'){
+                     wgsrpd3 = wgsrpd3_level1_simp
+                     data = data_level1
+                     level3_codes = report_cur$level3codes
+                     for(i in 1:nrow(wgsrpd3_level1_codes)){
+                       codes = unlist(stringr::str_replace_all(wgsrpd3_level1_codes$level3codes[i], pattern = ', ', '|'))
+
+                       for(j in 1:length(codes)){
+                         level3_codes = unlist(stringr::str_replace_all(level3_codes, pattern = codes, replacement = as.character(wgsrpd3_level1_codes$code[i])))
+                       }
+                     }
+
+                     level1_codes=unlist(lapply(level3_codes, function(x){
+                       split_codes = unique(unlist(stringr::str_split(x, pattern = ', ')))
+                       split_codes = split_codes[split_codes != 'NA']
+                       return(paste0(split_codes,collapse =', '))
+                     }))
+                     report_cur$level3codes = level1_codes
+
+                   }
+                   if(input$Geography_level == 'Level 2'){
+                     wgsrpd3 = wgsrpd3_level2_simp
+                     data = data_level2
+                     level3_codes = report_cur$level3codes
+                     for(i in 1:nrow(wgsrpd3_level2_codes)){
+                       codes = unlist(stringr::str_replace_all(wgsrpd3_level2_codes$level3codes[i], pattern = ', ', '|'))
+
+                       for(j in 1:length(codes)){
+                         level3_codes = unlist(stringr::str_replace_all(level3_codes, pattern = codes, replacement = as.character(wgsrpd3_level2_codes$code[i])))
+                       }
+                     }
+
+                     level2_codes=unlist(lapply(level3_codes, function(x){
+                       split_codes = unique(unlist(stringr::str_split(x, pattern = ', ')))
+                       split_codes = split_codes[split_codes != 'NA']
+                       return(paste0(split_codes,collapse =', '))
+                     }))
+                     report_cur$level3codes = level2_codes
+
+                   }
+                   if(input$Geography_level == 'Level 3'){
+                     wgsrpd3 = wgsrpd3_level3_simp
+                     data = data_level3
+
+                   }
+
+                   # Step 4: Create a data frame for the information for the map chart.
+                   details = data.frame(name = wgsrpd3$name, code = wgsrpd3$code)
+                   no_plants = rep(NA,nrow(details))
+                   no_unique_plants = rep(NA,nrow(details))
+                   for(i in 1:length(details$code)){
+                     index = grepl(pattern = details$code[i], x = wanted_data$level3codes)
+                     if(any(index)){
+                       no_plants[i] = sum(index)
+                       no_unique_plants[i] = length(unique(wanted_data$good_name[index]))
+                     }
+                   }
+
+                   details = data.frame(details, no_plants = no_plants, no_unique_plants = no_unique_plants)
+                   details$no_unique_plants[is.na(details$no_unique_plants)] = 0
+                   details$no_plants[is.na(details$no_plants)] = 0
+
+                   text = paste0('Region: ', details$name, '<br />',
+                                 'Number of Items: ', details$no_plants,  '<br />',
+                                 'Number of Taxa: ', details$no_unique_plants,  '<br />')
+                   details$hover = text
+
+                   # Step 5: Create object to be used for creating the linked table or records.
+                   #This is just wanted_data.
+
+                   # Step 6: Save created objects to a reactive object.
+                   geography_reactive_values$data_for_linked_table = wanted_data
+                   geography_reactive_values$data_for_map_plotly = details
+                   geography_reactive_values$wgsrpd3 = wgsrpd3
+
+                   # Step 7: Update the map plot.
+                   plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
+                     plotlyProxyInvoke("restyle", list(
+                       z = list(details$no_plants),
+                       locations = list(wgsrpd3$code),
+                       marker=list(
+                         line=list(
+                           width=list(0.01),
+                           color =list('black')
+                         )
+                       ),
+                       text = list(details$hover),
+                       hoverinfo = list('text'),
+                       zmin = 0,
+                       zmax = max(details$no_plants, na.rm = T)
+                       # colorbar = list(
+                       #   title = list(
+                       #     text = list('Number of Taxa')
+                       #   )
+                       # )
+                     )
+                     )
+
+                   plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
+                     plotlyProxyInvoke("relayout", list(
+                       title = list(
+                         text = as.character(input$geography_year)
+                         )
+                     )
+                     )
+                 })
+
+  # Change the map colour scheme.
+  observeEvent(c(input$chart_colour,
+                 input$chart_colour_reverse,
+                 input$main_tabs),{
+    if(input$main_tabs == 'Geography'){
+      index = seq(0,1,0.01)
+      if(input$chart_colour_reverse){
+        colours = c("#FFFFFF",colourScheme(100))
+      }else{
+        colours = c("#FFFFFF",rev(colourScheme(100)))
+      }
+      counter = 1:length(index)
+      col_scale = lapply(counter, function(i){return(c(index[i], colours[i]))})
+
+      plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
+        plotlyProxyInvoke("restyle", list(
+          colorscale=list(col_scale)
+        )
+        )
+    }
+  })
+
+  observeEvent(input$main_tabs, {
+    if(input$main_tabs == 'Geography'){
+      print('Into Geography tab')
+      # shinyjs::click('geography_button')
+      updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year)
+
+    }
+  })
+
+  # Plotly output for world map (choroplethmapbox)
+  output$geography_C = plotly::renderPlotly({
+    print('render geography_C:  Geography map plot')
+
+    # Here we create the empty plotly with the locations (level 3)
+    wgsrpd3 = wgsrpd3_level3_simp
+    data = data_level3
+    fig = plot_ly() %>%
+      add_trace(type="choroplethmapbox",
+                geojson=data,
+                locations=wgsrpd3$code
+                # z=details$no_unique_plants,
+                # colorscale=col_scale
+                # reversescale = FALSE,
+                # marker=list(line=list(
+                # width=0.01,color ='black'),
+                # text = details$hover,
+                # hoverinfo = 'text',
+                # zmin=0,
+                # zmax=max(details$no_unique_plants, na.rm = T)
+                # )
+      )%>% layout(
+        mapbox=list(
+          style="white-bg",
+          center = list(lon = 0 ,lat= 60),
+          zoom =0.46,
+          lataxis = list(range = c(-59, 90)))
+      )
+
+    fig <- fig   %>% config(modeBarButtonsToRemove = c("select2d", "lasso2d"))
+    fig <- fig  %>% event_register("plotly_legendclick")
+
+  })
+
+  output$geography_D = renderUI({
+    print('Create geography D - Table of linked records from the area.')
+    d <- event_data("plotly_click")
+    if(!is.null(d)){
+      # Get the clicked on region from the map.
+      print(paste0('Map clicked on - ', d))
+      selected = geography_reactive_values$wgsrpd3[d[[2]]+1,]
+      print(paste0('selected region =', selected$name))
+
+      # Get the filtered data from store.
+      report_cur = geography_reactive_values$data_for_linked_table
+
+      # codes of plants (with native/non_native etc) is contained in level3codes.
+      # Restrict to only the region of interest.
+      report_cur = report_cur[grepl(selected$code, report_cur$level3codes),]
+
+      # Suppress to only unique taxa and their counts.
+      report_unique_taxa <- report_cur |>
+        dplyr::group_by(.data$good_name) |>
+        dplyr::summarise(count = length(.data$POWO_web_address),
+                         POWO_web_address = .data$POWO_web_address[1],
+                         infrageneric_level = .data$infrageneric_level[1],
+                         endemic = .data$endemic[1],
+                         threatened = .data$threatened[1],
+                         redList_category = .data$redList_category[1],
+                         no_gardens = .data$no_gardens[1]
+        ) |>
+        dplyr::ungroup()
+      report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+
+      # Return the data table of report_unique_taxa
+      dt = datatable(report_unique_taxa, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE, filter="top")
+
+      p = htmltools::browsable(
+        tagList(list(
+          tags$div(htmltools::p(paste0('Below is the table of items in the collection from ', selected$name, ' in the year ',  input$geography_year, '.' ))),
+          tags$div(
+            style = 'width:100%;display:block;float:left;',
+            dt
+          )
+
+        ))
+      )
+      p
+    }
+  })
+
+  #### ====== (END) Geography tab section ==========
 }
 
 shinyApp(ui,server)
