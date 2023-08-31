@@ -852,7 +852,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          uiOutput('change_time_turnover', width = '100%', height = '100%')),
 
                 tabPanel("Geography",
-                         HTML('This tab is to view the geographic distribution of the collection over time. <br> Below you can choose which distributions of a taxa you want to show, by specifying whether the locations correspond to  naturally occuring (native), extinct locations or doubtful locations. These conditions correspond to the distribution data obtained from Plants of the World Online. For example see <a href=" https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:721150-1">Alchemilla saxatilis</a>.  <br> You can view the plants in the collection for a given year and location by clicking on the map. This is shown underneath the map. <br> Note that the map may take a while to load (this depends on the number of items exisiting in a given year).'),
+                         HTML('This tab is to view the geographic distribution of the collection over time. Note that a single item often belongs to more than one region (only endemic items will belong to a single region) <br><br> Below you can choose which distributions of a taxa you want to show, by specifying whether the locations correspond to  naturally occuring (native), extinct locations or doubtful locations. These conditions correspond to the distribution data obtained from Plants of the World Online. For example see <a href=" https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:721150-1">Alchemilla saxatilis</a>.  <br> You can view the plants in the collection for a given year and location by clicking on the map. This is shown underneath the map. <br> <br> <b>To initiate the first map you need to change the year.</b> Note that the map may take a while to load (this depends on the number of items exisiting in a given year).'),
                          hr(),
                          fluidRow(
                            column(
@@ -866,7 +866,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          ),
                          fluidRow(
                            column( width = 6, selectInput(inputId = 'geography_year', label = 'Year:',choices = NULL, selected = NULL, multiple = FALSE)),
-                           column( width = 6, selectInput(inputId = 'geography_to_show', label = 'To Show:',choices = c('Items in Collection', 'Turnover - Gain (Items)', 'Turnover - Loss (Items)', 'Turnover - Net (Items)' ), selected = 'Items in Collection', multiple = FALSE)),
+                           column( width = 6, selectInput(inputId = 'geography_to_show', label = 'To Show:',choices = c('Items in Collection', 'Turnover - Gain (Items)', 'Turnover - Loss (Items)', 'Turnover - Net (Items)'), selected = 'Items in Collection', multiple = FALSE)),
                          ),
                          hr(),
                          plotlyOutput('geography_C', width = '100%', height = '100%'),
@@ -2769,11 +2769,38 @@ server <- function(input, output, session){
                    # 1) Get the filtered records.
                    wanted_data = values$data
 
-                   # 2) Reduce to only plants existing in the year of interest.
-                   wanted_index = unlist(values$plant_existing[grepl(input$geography_year, names(values$plant_existing))])
-                   wanted_data = wanted_data[wanted_index,]
 
-                   # 3) Reduce to only records that have geogrpahic distribution (i.e matched to POWO)
+                   # 2) Reduce to only plants existing for the quantity of interest.
+                   if(input$geography_to_show == 'Items in Collection'){
+                     wanted_index = unlist(values$plant_existing[grepl(input$geography_year, names(values$plant_existing))])
+                     wanted_data = wanted_data[wanted_index,]
+
+                   }
+                   else if(input$geography_to_show == 'Turnover - Gain (Items)'){
+                     # only items accessed in the given year.
+                     wanted_index = which(wanted_data$AccYear == input$geography_year)
+                     wanted_data = wanted_data[wanted_index,]
+                   }
+                   else if(input$geography_to_show == 'Turnover - Loss (Items)'){
+                     DeathYear = as.numeric(stringr::str_sub(string = wanted_data$DeathDate, start = 1,end = 4))
+                     wanted_index = which(DeathYear == input$geography_year)
+                     wanted_data = wanted_data[wanted_index,]
+                   }
+                   else if(input$geography_to_show == 'Turnover - Net (Items)'){
+                     DeathYear = as.numeric(stringr::str_sub(string = wanted_data$DeathDate, start = 1,end = 4))
+                     loss_index = which(DeathYear == input$geography_year)
+                     gain_index = which(wanted_data$AccYear == input$geography_year)
+
+                     loss_gain = rep('', nrow(wanted_data))
+                     loss_gain[loss_index] = paste0(loss_gain[loss_index], 'Loss')
+                     loss_gain[gain_index] = paste0(loss_gain[gain_index], 'Gain')
+
+                     wanted_data$loss_gain = loss_gain
+
+                     wanted_data = wanted_data[unique(c(loss_index, gain_index)),]
+                   }
+
+                   # 3) Reduce to only records that have geographic distribution (i.e matched to POWO)
                    wanted_data = wanted_data[grepl('POWO',wanted_data$enrichment_status),]
 
                    wanted_data = wanted_data[!grepl('0',wanted_data$infrageneric_level),]
@@ -2858,24 +2885,61 @@ server <- function(input, output, session){
 
                    # Step 4: Create a data frame for the information for the map chart.
                    details = data.frame(name = wgsrpd3$name, code = wgsrpd3$code)
-                   no_plants = rep(NA,nrow(details))
-                   no_unique_plants = rep(NA,nrow(details))
-                   for(i in 1:length(details$code)){
-                     index = grepl(pattern = details$code[i], x = wanted_data$level3codes)
-                     if(any(index)){
-                       no_plants[i] = sum(index)
-                       no_unique_plants[i] = length(unique(wanted_data$good_name[index]))
+                   if(input$geography_to_show != 'Turnover - Net (Items)'){
+                     no_plants = rep(NA,nrow(details))
+                     no_unique_plants = rep(NA,nrow(details))
+                     for(i in 1:length(details$code)){
+                       index = grepl(pattern = details$code[i], x = wanted_data$level3codes)
+                       if(any(index)){
+                         no_plants[i] = sum(index)
+                         no_unique_plants[i] = length(unique(wanted_data$good_name[index]))
+                       }
                      }
+
+                     details = data.frame(details, no_plants = no_plants, no_unique_plants = no_unique_plants)
+                     details$no_unique_plants[is.na(details$no_unique_plants)] = 0
+                     details$no_plants[is.na(details$no_plants)] = 0
+
+                     text = paste0('Region: ', details$name, '<br />',
+                                   'Number of Items: ', details$no_plants,  '<br />',
+                                   'Number of Taxa: ', details$no_unique_plants,  '<br />')
+                     details$hover = text
+                   }
+                   else{
+                     #gain
+                     data_gain = wanted_data[wanted_data$loss_gain == 'Gain',]
+                     no_plants_gain = rep(NA,nrow(details))
+                     for(i in 1:length(details$code)){
+                       index = grepl(pattern = details$code[i], x = data_gain$level3codes)
+                       if(any(index)){
+                         no_plants_gain[i] = sum(index)
+                       }
+                     }
+                     no_plants_gain[is.na(no_plants_gain)] = 0
+
+                     #loss
+                     data_loss = wanted_data[wanted_data$loss_gain == 'Loss',]
+                     no_plants_loss = rep(NA,nrow(details))
+                     for(i in 1:length(details$code)){
+                       index = grepl(pattern = details$code[i], x = data_loss$level3codes)
+                       if(any(index)){
+                         no_plants_loss[i] = sum(index)
+                       }
+                     }
+                     no_plants_loss[is.na(no_plants_loss)] = 0
+
+                     net = no_plants_gain - no_plants_loss
+
+                     details = data.frame(details, no_plants = net)
+
+                     text = paste0('Region: ', details$name, '<br />',
+                                   'Net Gain/Lost: ', net,  '<br />',
+                                   'Number of Gain: ', no_plants_gain,  '<br />',
+                                   'Number of Loss: ', no_plants_loss,  '<br />'
+                                  )
+                     details$hover = text
                    }
 
-                   details = data.frame(details, no_plants = no_plants, no_unique_plants = no_unique_plants)
-                   details$no_unique_plants[is.na(details$no_unique_plants)] = 0
-                   details$no_plants[is.na(details$no_plants)] = 0
-
-                   text = paste0('Region: ', details$name, '<br />',
-                                 'Number of Items: ', details$no_plants,  '<br />',
-                                 'Number of Taxa: ', details$no_unique_plants,  '<br />')
-                   details$hover = text
 
                    # Step 5: Create object to be used for creating the linked table or records.
                    #This is just wanted_data.
@@ -2886,32 +2950,47 @@ server <- function(input, output, session){
                    geography_reactive_values$wgsrpd3 = wgsrpd3
 
                    # Step 7: Update the map plot.
-                   plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
-                     plotlyProxyInvoke("restyle", list(
-                       z = list(details$no_plants),
-                       locations = list(wgsrpd3$code),
-                       marker=list(
-                         line=list(
-                           width=list(0.01),
-                           color =list('black')
-                         )
-                       ),
-                       text = list(details$hover),
-                       hoverinfo = list('text'),
-                       zmin = 0,
-                       zmax = max(details$no_plants, na.rm = T)
-                       # colorbar = list(
-                       #   title = list(
-                       #     text = list('Number of Taxa')
-                       #   )
-                       # )
-                     )
-                     )
+                   if(input$geography_to_show != 'Turnover - Net (Items)'){
+                     plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
+                       plotlyProxyInvoke("restyle", list(
+                         z = list(details$no_plants),
+                         locations = list(wgsrpd3$code),
+                         marker=list(
+                           line=list(
+                             width=list(0.01),
+                             color =list('black')
+                           )
+                         ),
+                         text = list(details$hover),
+                         hoverinfo = list('text'),
+                         zmin = 0,
+                         zmax = max(details$no_plants, na.rm = T)
+                       )
+                       )
+                   }else{
+                     plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
+                       plotlyProxyInvoke("restyle", list(
+                         z = list(details$no_plants),
+                         locations = list(wgsrpd3$code),
+                         marker=list(
+                           line=list(
+                             width=list(0.01),
+                             color =list('black')
+                           )
+                         ),
+                         text = list(details$hover),
+                         hoverinfo = list('text'),
+                         zmin = min(details$no_plants, na.rm = T),
+                         zmax = max(details$no_plants, na.rm = T)
+                       )
+                       )
+                   }
+
 
                    plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
                      plotlyProxyInvoke("relayout", list(
                        title = list(
-                         text = as.character(input$geography_year)
+                         text = paste0(input$geography_to_show, ' in ', as.character(input$geography_year))
                          )
                      )
                      )
@@ -2943,7 +3022,14 @@ server <- function(input, output, session){
     if(input$main_tabs == 'Geography'){
       print('Into Geography tab')
       # shinyjs::click('geography_button')
-      updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year)
+      selected = input$chart_colour
+      if(selected == 'viridis'){
+        go_to = 'cividis'
+      }else{
+        go_to = 'viridis'
+      }
+      updateSelectInput(session, inputId = 'chart_colour', choices = c('viridis', 'cividis', 'inferno', 'plasma', 'turbo', 'rocket', 'mako'), selected = go_to)
+      updateSelectInput(session, inputId = 'chart_colour', choices = c('viridis', 'cividis', 'inferno', 'plasma', 'turbo', 'rocket', 'mako'), selected = selected)
 
     }
   })
@@ -2999,25 +3085,42 @@ server <- function(input, output, session){
       report_cur = report_cur[grepl(selected$code, report_cur$level3codes),]
 
       # Suppress to only unique taxa and their counts.
-      report_unique_taxa <- report_cur |>
-        dplyr::group_by(.data$good_name) |>
-        dplyr::summarise(count = length(.data$POWO_web_address),
-                         POWO_web_address = .data$POWO_web_address[1],
-                         infrageneric_level = .data$infrageneric_level[1],
-                         endemic = .data$endemic[1],
-                         threatened = .data$threatened[1],
-                         redList_category = .data$redList_category[1],
-                         no_gardens = .data$no_gardens[1]
-        ) |>
-        dplyr::ungroup()
-      report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+      if(input$geography_to_show != 'Turnover - Net (Items)'){
+        report_unique_taxa <- report_cur |>
+          dplyr::group_by(.data$good_name) |>
+          dplyr::summarise(count = length(.data$POWO_web_address),
+                           POWO_web_address = .data$POWO_web_address[1],
+                           infrageneric_level = .data$infrageneric_level[1],
+                           endemic = .data$endemic[1],
+                           threatened = .data$threatened[1],
+                           redList_category = .data$redList_category[1],
+                           no_gardens = .data$no_gardens[1]
+          ) |>
+          dplyr::ungroup()
+        report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+      }else{
+        report_unique_taxa <- report_cur |>
+          dplyr::group_by(.data$good_name) |>
+          dplyr::summarise(count = length(.data$POWO_web_address),
+                           POWO_web_address = .data$POWO_web_address[1],
+                           gain_loss = unique(.data$loss_gain),
+                           infrageneric_level = .data$infrageneric_level[1],
+                           endemic = .data$endemic[1],
+                           threatened = .data$threatened[1],
+                           redList_category = .data$redList_category[1],
+                           no_gardens = .data$no_gardens[1]
+          ) |>
+          dplyr::ungroup()
+        report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+      }
+
 
       # Return the data table of report_unique_taxa
       dt = datatable(report_unique_taxa, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE, filter="top")
 
       p = htmltools::browsable(
         tagList(list(
-          tags$div(htmltools::p(paste0('Below is the table of items in the collection from ', selected$name, ' in the year ',  input$geography_year, '.' ))),
+          tags$div(htmltools::p(paste0('Below is the table of "', input$geography_to_show, '" from ', selected$name, ' in the year ',  input$geography_year, '.' ))),
           tags$div(
             style = 'width:100%;display:block;float:left;',
             dt
