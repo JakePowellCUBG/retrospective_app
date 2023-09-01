@@ -856,7 +856,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          uiOutput('change_time_turnover', width = '100%', height = '100%')),
 
                 tabPanel("Geography",
-                         HTML('This tab is to view the geographic distribution of the collection over time. Note that a single item often belongs to more than one region (only endemic items will belong to a single region) <br><br> Below you can choose which distributions of a taxa you want to show, by specifying whether the locations correspond to  naturally occuring (native), extinct locations or doubtful locations. These conditions correspond to the distribution data obtained from Plants of the World Online. For example see <a href=" https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:721150-1">Alchemilla saxatilis</a>.  <br> You can view the plants in the collection for a given year and location by clicking on the map. This is shown underneath the map. <br> <br> <b>To initiate the first map you need to change the year.</b> Note that the map may take a while to load (this depends on the number of items exisiting in a given year).'),
+                         HTML('This tab is to view the geographic distribution of the collection over time. Note that a single item often belongs to more than one region (only endemic items will belong to a single region) <br><br> Below you can choose which distributions of a taxa you want to show, by specifying whether the locations correspond to  naturally occuring (native), extinct locations or doubtful locations. These conditions correspond to the distribution data obtained from Plants of the World Online. For example see <a href=" https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:721150-1">Alchemilla saxatilis</a>.  <br> You can view the plants in the collection for a given year and location by clicking on the map. This is shown underneath the map. <br> <br> <b>To initiate the first map you may need to change the year.</b> Note that the map may take a while to load (this depends on the number of items exisiting in a given year). This may also cause lag if using the <b> play </b> button for the year slider.'),
                          hr(),
                          fluidRow(
                            column(
@@ -869,8 +869,44 @@ ui <- fluidPage(#theme = shinytheme("united"),
                              prettySwitch(inputId = "doubtful_locations_switch", label = "Include Doubtful locations", fill = TRUE, status = "primary"))
                          ),
                          fluidRow(
-                           column( width = 6, selectInput(inputId = 'geography_year', label = 'Year:',choices = NULL, selected = NULL, multiple = FALSE)),
-                           column( width = 6, selectInput(inputId = 'geography_to_show', label = 'To Show:',choices = c('Items in Collection', 'Turnover - Gain (Items)', 'Turnover - Loss (Items)', 'Turnover - Net (Items)'), selected = 'Items in Collection', multiple = FALSE)),
+                           column( width = 8,       sliderInput(
+                             inputId = "geography_year",
+                             label = "Year Selector:",
+                             min = 2000L,
+                             max = 2020L,
+                             value = 2000L,
+                             step = 1L,
+                             round = FALSE,
+                             ticks = TRUE,
+                             animate = animationOptions(
+                               interval = 1000,
+                               loop = FALSE,
+                               playButton = actionButton(
+                                 "play",
+                                 "Play",
+                                 icon = icon("play"),
+                                 width = "100px",
+                                 style = "margin-top: 10px; color: #fff; background-color: #337ab7; border-color: #2e6da4"
+                               ),
+                               pauseButton = actionButton(
+                                 "pause",
+                                 "Pause",
+                                 icon = icon("pause"),
+                                 width = "100px",
+                                 style = "margin-top: 10px; color: #fff; background-color: #337ab7; border-color: #2e6da4"
+                               )
+                             ),
+                             width = '100%',
+                             sep = "",
+                             pre = "Year: ",
+                             post = NULL,
+                             timeFormat = NULL,
+                             timezone = NULL,
+                             dragRange = TRUE
+                           )),
+
+                                   # selectInput(inputId = 'geography_year', label = 'Year:',choices = NULL, selected = NULL, multiple = FALSE)),
+                           column( width = 4, selectInput(inputId = 'geography_to_show', label = 'To Show:',choices = c('Items in Collection', 'Turnover - Gain (Items)', 'Turnover - Loss (Items)', 'Turnover - Net (Items)'), selected = 'Items in Collection', multiple = FALSE)),
                          ),
                          hr(),
                          plotlyOutput('geography_C', width = '100%', height = '100%'),
@@ -2749,8 +2785,18 @@ server <- function(input, output, session){
   year_cur = as.numeric(format(Sys.Date(),'%Y'))
 
   years = min_year:year_cur
-  updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year+1)
-
+  # updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year+1)
+  updateSliderInput(
+    session = session,
+    inputId = "geography_year",
+    label = NULL,
+    value = min_year,
+    min = min_year,
+    max = year_cur,
+    step = NULL,
+    timeFormat = NULL,
+    timezone = NULL
+  )
   #Stores for geography data.
   geography_reactive_values =  reactiveValues(data_for_linked_table = NA,
                                               data_for_map_plotly = NA,
@@ -3027,7 +3073,13 @@ server <- function(input, output, session){
 
       plotlyProxy("geography_C", session, deferUntilFlush = FALSE) %>%
         plotlyProxyInvoke("restyle", list(
-          colorscale=list(col_scale)
+          colorscale=list(col_scale),
+          marker = list(
+            colorbar = list(
+              orientation = list('h'),
+              y = list(-1)
+            )
+          )
         )
         )
     }
