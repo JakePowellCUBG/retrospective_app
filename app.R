@@ -18,6 +18,10 @@ createLink <- function(val) {
   sprintf('<a href="%s" target="_blank" class="btn btn-primary">POWO</a>',val)
 }
 
+createLink_IUCN <- function(val) {
+  sprintf('<a href="%s" target="_blank" class="btn btn-primary">IUCN</a>',val)
+}
+
 regions_plot <- function(event_data, ylim, add_annotate = FALSE, alpha = 1){
   p = plot_ly()
   xvalues = NULL
@@ -1154,6 +1158,16 @@ server <- function(input, output, session){
   powo_link[is.na(report_care$POWO_web_address)] = 'Not Matched to POWO'
   report_care$POWO_web_address <- powo_link
 
+  IUCN_link = rep('Not Matched to IUCN Redlist', nrow(report_care))
+  has_redlist = which(!is.na(report_care$redList_category))
+  split_name = stringr::str_split(report_care$good_name[has_redlist],pattern = ' ')
+  genus = unlist(lapply(split_name, function(x){x[1]}))
+  species = unlist(lapply(split_name, function(x){x[2]}))
+  IUCN_web_address = paste0('https://www.iucnredlist.org/search/list?query=', genus, '%20', species, '&searchType=species',sep = '')
+  IUCN_link[has_redlist] = createLink_IUCN(IUCN_web_address)
+  report_care$IUCN_web_address <- IUCN_link
+
+
 
   # Update the UI for the inputted data (year and option)
   updateSliderInput(session, inputId = 'extant', min = min(report$no_gardens,na.rm = T), max = max(report$no_gardens,na.rm = T), step=1, value =c(min(report$no_gardens,na.rm = T), max(report$no_gardens,na.rm = T)))
@@ -1991,9 +2005,10 @@ server <- function(input, output, session){
                              "Introduced, not-extinct, not-doubtful",
                              "Introduced, extinct, not-doubtful",
                              "Introduced, not-extinct, doubtful",
-                             "Infraspecific Level", "Genus", "Family", "Species",                    "Enrichment status", "Item Status Date", "Item Status Type", "Genus Species", "POWO taxon name", "POWO taxon authors",         "POWO genus", "POWO species" )
+                             "Infraspecific Level", "Genus", "Family", "Species",                    "Enrichment status", "Item Status Date", "Item Status Type", "Genus Species", "POWO taxon name", "POWO taxon authors",
+                             "POWO genus", "POWO species", 'Santised Name', 'Link to IUCN' )
 
-    dat_for_table = dat_for_table[,c(1,2,5,3:4,6:ncol(dat_for_table))]
+    dat_for_table = dat_for_table[,c(1,2,5,31,3:4,6:(ncol(dat_for_table)-1))]
 
 
     datatable(dat_for_table, rownames = FALSE, options = list(scrollY = '70vh', scrollX =  TRUE, pageLength =  200), escape = FALSE, filter="top")})
@@ -3090,6 +3105,7 @@ server <- function(input, output, session){
           dplyr::group_by(.data$good_name) |>
           dplyr::summarise(count = length(.data$POWO_web_address),
                            POWO_web_address = .data$POWO_web_address[1],
+                           IUCN_web_address = .data$IUCN_web_address[1],
                            infrageneric_level = .data$infrageneric_level[1],
                            endemic = .data$endemic[1],
                            threatened = .data$threatened[1],
@@ -3098,11 +3114,13 @@ server <- function(input, output, session){
           ) |>
           dplyr::ungroup()
         report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+        names(report_unique_taxa) = c("Report name", 'Number in Collection', "Link to POWO", 'Link to IUCN', "Infraspecific Level", "Endemic", "Threatened", "RedList Category", "# Collections Globally")
       }else{
         report_unique_taxa <- report_cur |>
           dplyr::group_by(.data$good_name) |>
           dplyr::summarise(count = length(.data$POWO_web_address),
                            POWO_web_address = .data$POWO_web_address[1],
+                           IUCN_web_address = .data$IUCN_web_address[1],
                            gain_loss = unique(.data$loss_gain),
                            infrageneric_level = .data$infrageneric_level[1],
                            endemic = .data$endemic[1],
@@ -3112,6 +3130,7 @@ server <- function(input, output, session){
           ) |>
           dplyr::ungroup()
         report_unique_taxa = report_unique_taxa[order(report_unique_taxa$count,decreasing = T),]
+        names(report_unique_taxa) = c("Report name", 'Number in Collection', "Link to POWO", 'Link to IUCN', "Items Gained/Lost from Collection", "Infraspecific Level", "Endemic", "Threatened", "RedList Category", "# Collections Globally")
       }
 
 
