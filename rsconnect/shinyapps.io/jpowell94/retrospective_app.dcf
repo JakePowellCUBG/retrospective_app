@@ -5,8 +5,8 @@ account: jpowell94
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 9616640
-bundleId: 7625071
+bundleId: 7715241
 url: https://jpowell94.shinyapps.io/retrospective_app/
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: dfvdfvdfvdf.R|fvnlkdffklvnfklvndf.R|Underlying_data_and_inputs.xlsx|vfvvfvfv.R
+ignoredFiles: County.csv|dfvdfvdfvdf.R|fvnlkdffklvnfklvndf.R|geography only.R|Mapping.csv|MasterKickstarter.csv|nrgwgtrnrgbvdset.R|sxscdvf h j .R|Underlying_data_and_inputs.xlsx|update_cloropleth_example.R|vfvfvfffeffvf.R|vfvvfvfv.R

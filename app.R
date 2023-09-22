@@ -744,7 +744,7 @@ get_chart_data_turnover <- function(data_working, data_plant_existing, turnover_
 
 ui <- fluidPage(#theme = shinytheme("united"),
   shinyjs::useShinyjs(),
-  headerPanel('Change over time app'),
+  headerPanel('Change Over Time'),
   sidebarPanel(HTML('<h4>Current Selection:</h4>'),
                uiOutput('summary'),
                hr(),
@@ -803,15 +803,16 @@ ui <- fluidPage(#theme = shinytheme("united"),
       column(12, div(disabled(downloadButton('downloadData', 'Download Data')), style = "float: right"))),
     # Output: Tabset w/ plot, summary, and table ----
     tabsetPanel(id = 'main_tabs', type = "tabs",
-                tabPanel("Info", HTML('<h3>Welcome to the change over time app!</h3> This app provides a tool for examining how a living collection has varied over time.
-                                      <br> The sidebar provides summary details of the selected data, controls global parameters that filter the data and default time window. To change the default time window or chart colours go to the <b>Chart Options</b> tab. Controls for filtering the data is found in the <b>Filters</b> tab. The Global Filters are: <br> <b>Provenance:</b> Filter the provenance of the items. <br> <b>Type of Taxa:</b> Filter the collection by the type of taxa. Note that taxa can be tagged as multiple types such as <i> Salix × fragilis f. vitellina </i> as both hybrid and forma. In this case, the taxa will be kept by either restricting to hybrids or forma. <br> <b>Geography controls:</b> This contains a selection of controls to filter the taxa by their distribution. The level allows a choice between Level 1 (Continents), Level 2 (larger regions) and Level 3 (smaller regions) using wgsrpd3 breakdown (<a href="https://www.tdwg.org/standards/wgsrpd/">see here</a>). Changing the level will automatically change the regions you can select. Using the region box you can filter the taxa by one or more areas. The location of a taxon can be described as naturally occurring or introduced, extinct or not and location doubtful or not. By default we select only naturally occuring locations that are neither extinct or doubtful. To change these settings you can update <b>location type</b> for naturally occurring/introduced and the switches to allow extinct or doubtful areas. <br> <b>Threatened:</b> Filter by threatened status of Taxa (using IUCN redlist). If "Threatened" is selected another filter will appear below where you can choose between threatened categories. <br> <b> Endemic:</b> Filter by endemic speices, where we define a species as endemic if its distriubtion is a single level 3 area which is neither extinct or doubtful.  <br> <b>POWO match status:</b> Filter by records which matched to Plants of the World Online (POWO) or not. <br> <b>Number of Global Collections: </b> Filter the collection by the number of collections a taxon is found in worldwide using BGCI records (Older version of plantsearch).  <br><br>
+                tabPanel("Info", HTML('<h3>Welcome to the change over time app!</h3> This app provides a tool for examining how a living collection has varied over time.  <br><br> <b>Note that the app can be rather laggy/crash. To mitigate this it might help to only change the controls slowly (i.e wait for plots to re-render before making another change)</b> <br><br>
+                                       The sidebar provides summary details of the selected data, controls global parameters that filter the data and default time window. To change the default time window or chart colours go to the <b>Chart Options</b> tab. Controls for filtering the data is found in the <b>Filters</b> tab. The Global Filters are: <br> <b>Provenance:</b> Filter the provenance of the items. <br> <b>Type of Taxa:</b> Filter the collection by the type of taxa. Note that taxa can be tagged as multiple types such as <i> Salix × fragilis f. vitellina </i> as both hybrid and forma. In this case, the taxa will be kept by either restricting to hybrids or forma. <br> <b>Geography controls:</b> This contains a selection of controls to filter the taxa by their distribution. The level allows a choice between Level 1 (Continents), Level 2 (larger regions) and Level 3 (smaller regions) using wgsrpd3 breakdown (<a href="https://www.tdwg.org/standards/wgsrpd/">see here</a>). Changing the level will automatically change the regions you can select. Using the region box you can filter the taxa by one or more areas. The location of a taxon can be described as naturally occurring or introduced, extinct or not and location doubtful or not. For example of the different types of location see <a href="https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:728523-1">Potentilla montana</a>. By default we select only naturally occuring locations that are neither extinct or doubtful. To change these settings you can update <b>location type</b> for naturally occurring/introduced and the switches to allow extinct or doubtful areas. <br> <b>Threatened:</b> Filter by threatened status of Taxa (using IUCN redlist). If "Threatened" is selected another filter will appear below where you can choose between threatened categories. <br> <b> Endemic:</b> Filter by endemic speices, where we define a species as endemic if its distriubtion is a single level 3 area which is neither extinct or doubtful.  <br> <b>POWO match status:</b> Filter by records which matched to Plants of the World Online (POWO) or not. <br> <b>Number of Global Collections: </b> Filter the collection by the number of collections a taxon is found in worldwide using BGCI records (Older version of plantsearch).  <br><br>
 
                                       In the top right hand corner there is the <b>Download Data</b> button, when on either the <b>Whole Collection</b> or <b>Turnover</b> tabs the button will enable. Clicking the button will download a zipped folder containing the interactive widgets currently shown on the main panel and an excel file containing: the app inputs, the historical events and the table of data used in creating the widgets.  <br><br>
-                                      The app also contains four tabs: <br>
+                                      The app also contains five tabs: <br>
                                       <b>Info:</b> Explains how to use the app. <br>
                                       <b>Data:</b> Shows the underlying data. <br>
                                       <b>Whole Collection:</b> This tab produces charts/graphs showing how the living collection has changed over time  <br>
                                       <b>Turnover:</b> This tab produces charts/graphs detailing the turnover of items and accessions in the collection  <br>
+                                      <b>Geography:</b> This tab produces a world map detailing the change of the geographic distribution of the items in the collection.   <br>
                                       <b>Options:</b> this tab allows users to add historic events which will be shown in the graphics.   <br>')),
 
                 tabPanel("Data",
@@ -830,7 +831,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          DT::DTOutput(outputId = 'table')),
 
                 tabPanel("Whole Collection",
-                         HTML('This tab is to view how the collection has changed over time using different metrics and filters. <br> Below you can control the quantity ued to produce the plots in  <b>Breakdown By</b>. After chosing the quantity you can use <b> Chart</b> to choose which graphic to show. <br> Moreover you can filter the data using the sidebar as explained in the info tab and add historical events using the <b>Options</b> tab. '),
+                         HTML('This tab is to view how the collection has changed over time using different metrics and filters. <br> Below you can control the quantity used to produce the plots in  <b>Breakdown By</b>. After chosing the quantity you can use <b> Chart</b> to choose which graphic to show. <br> Moreover you can filter the data using the sidebar as explained in the info tab and add historical events using the <b>Options</b> tab. '),
                          hr(),
                          fluidRow(
                            column(
@@ -842,7 +843,7 @@ ui <- fluidPage(#theme = shinytheme("united"),
                          uiOutput('change_time_single_value', width = '100%', height = '100%')),
 
                 tabPanel("Turnover",
-                         HTML('This tab is to view the turnover in the collection collection over time using different metrics and filters. <br> Below you can control the quantity to consider using <b>Breakdown By</b> select input. For each quanitity there are a selection of available charts to show. These can be selected using the <b>Chart</b> input. Moreover you can filter the data using the sidebar as explained in the info tab and add historical events using the <b>Options</b> tab. '),
+                         HTML('This tab is to view the turnover in the collection collection over time using different metrics and filters. <br> Choose between "Net", "Gain" or "Loss" of turnover via <b>Turnover</b> select input. You can control the quantity to consider using <b>Breakdown By</b> select input. For each quanitity there are a selection of available charts to show. These can be selected using the <b>Chart</b> input. Moreover you can filter the data using the sidebar as explained in the info tab and add historical events using the <b>Options</b> tab. '),
                          hr(),
                          fluidRow(
                            column(
@@ -1358,7 +1359,6 @@ server <- function(input, output, session){
                        }
                      }
                      if(!is.null(input$filter_family)){
-                       print('boyah')
                        current = current[which(current$family %in% input$filter_family),]
                      }
 
@@ -2785,7 +2785,6 @@ server <- function(input, output, session){
   year_cur = as.numeric(format(Sys.Date(),'%Y'))
 
   years = min_year:year_cur
-  # updateSelectInput(session, inputId = 'geography_year', choices = min_year:year_cur, selected = min_year+1)
   updateSliderInput(
     session = session,
     inputId = "geography_year",
